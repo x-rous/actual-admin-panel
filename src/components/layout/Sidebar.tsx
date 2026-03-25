@@ -23,10 +23,11 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const version = process.env.NEXT_PUBLIC_APP_VERSION;
 
   return (
     <aside className="flex w-52 shrink-0 flex-col border-r border-border bg-background">
-      <nav className="flex flex-1 flex-col gap-0.5 p-2 pt-3">
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2 pt-3">
         {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
           const active = pathname.startsWith(href);
           return (
@@ -45,6 +46,11 @@ export function Sidebar() {
             </Link>
           );
         })}
+        {version && (
+          <span className="px-3 pt-2 text-xs text-muted-foreground/60">
+            v{version}
+          </span>
+        )}
       </nav>
     </aside>
   );

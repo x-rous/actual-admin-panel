@@ -4,17 +4,10 @@
  * All requests are routed through the Next.js proxy at /api/proxy so that
  * the browser never makes a cross-origin fetch (no CORS issues). The proxy
  * forwards to: {baseUrl}/v1/budgets/{budgetSyncId}/{resource}
- *
- * Set NEXT_PUBLIC_MOCK_API=true to use the mock layer instead.
  */
 
 import type { ConnectionInstance } from "@/store/connection";
 import type { ApiError } from "@/types/errors";
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-
-export const MOCK_API_ENABLED =
-  process.env.NEXT_PUBLIC_MOCK_API === "true";
 
 // ─── Request helpers ──────────────────────────────────────────────────────────
 

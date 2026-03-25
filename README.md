@@ -1,36 +1,140 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Actual Budget Admin Panel
 
-## Getting Started
+![Version](https://img.shields.io/github/v/release/manafm/actual-admin-panel?label=version)
+![License](https://img.shields.io/github/license/manafm/actual-admin-panel)
 
-First, run the development server:
+A web-based admin panel for [Actual Budget](https://actualbudget.org/) that connects to a self-hosted [actual-http-api](https://github.com/sakowicz/actual-http-api) server. Manage accounts, payees, categories, and rules through a clean UI with staged editing, undo/redo, and CSV import/export.
+
+## Features
+
+- **Multi-connection support** — save and switch between multiple Actual Budget servers; all staged data and query cache are scoped per connection
+- **Staged editing** — all changes are held locally until you click Save; inline editing never touches the server immediately
+- **Undo / Redo** — step backwards and forwards through your edits before committing
+- **Accounts** — view and rename accounts, toggle on/off budget status; CSV import/export
+- **Payees** — view, rename, and delete payees; CSV import/export
+- **Categories** — view, rename, show/hide, and reorder categories within groups; CSV import/export
+- **Rules** — view, filter by stage, create and edit rules with a full condition/action builder; CSV import/export
+  - Conditions: `contains`, `matches`, `oneOf`, `is`, `isNot`, `gt`, `lt`, `gte`, `lte`, `isapprox`, `isbetween`, `onBudget`, `offBudget`
+  - Multi-value `oneOf` inputs: entity picker (accounts, payees, categories) and tag input (strings)
+  - Actions: `set`, `set-split-amount`, `link-schedule`, `prepend-notes`, `append-notes`
+  - Stage filter: `default`, `pre`, `post`
+
+## Connecting to Actual Budget
+
+You need a running [actual-http-api](https://github.com/sakowicz/actual-http-api) instance. On the Connect screen enter:
+
+| Field | Description |
+|---|---|
+| **Server URL** | Base URL of your actual-http-api server (e.g. `https://actual-api.example.com`) |
+| **API Key** | The `ACTUAL_API_KEY` you set on the server |
+| **Budget Sync ID** | The sync ID of the budget file (visible in Actual Budget under Settings → Sync) |
+| **Encryption Password** | Only required if the budget is end-to-end encrypted |
+
+After connecting, the connection is saved in your browser's **session storage** so credentials are automatically cleared when you close the tab. You will need to reconnect each time you open a new tab — this is intentional for security. Use the connection menu in the top bar to add more connections or switch between them.
+
+## Staged Editing Workflow
+
+1. Make changes inline (click any cell to edit, press Enter or click away to confirm)
+2. New rows, updates, and deletions are highlighted in the table
+3. Click **Save** in the draft panel to persist all changes to the server
+4. Click **Discard** to revert all pending changes
+5. Use **Undo** / **Redo** to step through your local edit history before saving
+
+## CSV Import / Export
+
+Every entity page has an Export button that downloads a UTF-8 (Comma delimited) CSV file compatible with Excel. The Import button accepts the same format — map your columns and the rows are staged as new or updated entities (not saved until you click Save).
+
+## Known Limitations
+
+- **Session storage is tab-local** — credentials clear when the tab is closed; reconnection is required in each new tab.
+- **No pagination** — all entities (accounts, payees, categories, rules) are loaded at once. Performance may degrade on very large budgets.
+- **Schedules** — not yet implemented.
+
+## Development
+
+### Prerequisites
+
+- Node.js 20+
+- A running [actual-http-api](https://github.com/sakowicz/actual-http-api) server
+
+### Setup
 
 ```bash
+git clone https://github.com/manafm/actual-admin-panel.git
+cd actual-admin-panel
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+No `.env` file is required. The app version is injected automatically from `package.json` at build time.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Versioning
 
-## Learn More
+This project uses [semantic versioning](https://semver.org/). To cut a release:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm version patch   # 0.1.0 → 0.1.1  (bug fixes)
+npm version minor   # 0.1.0 → 0.2.0  (new features)
+npm version major   # 0.1.0 → 1.0.0  (breaking changes)
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`npm version` bumps `package.json`, commits the change, and creates a git tag automatically. Push the tag to create a GitHub release:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+git push && git push --tags
+```
 
-## Deploy on Vercel
+### Scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Command | Description |
+|---|---|
+| `npm run dev` | Start Turbopack dev server |
+| `npm run build` | Production build |
+| `npm start` | Serve the production build |
+| `npm run lint` | ESLint |
+| `npm test` | Jest tests |
+| `npm run clean` | Delete build artifacts (`.next-build/`, `tsconfig.tsbuildinfo`) |
+| `npm version patch\|minor\|major` | Bump version, commit, and tag |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Docker
+
+### Dev Container (Portainer / Traefik)
+
+The dev compose file mounts your source directory and starts the Turbopack hot-reload server. A named Docker volume persists the Turbopack build cache across restarts so you avoid an HMR rebuild loop on each start.
+
+**First-time setup** (run once on the host, from the project root):
+
+```bash
+npm install
+```
+
+**Start the container:**
+
+```bash
+docker compose -f docker/docker-compose.dev.yml up -d
+```
+
+Edit `docker/docker-compose.dev.yml` to set the source volume path and your Traefik hostname before starting. The server is available on port `3001`. Edit files on the host and changes appear immediately via hot reload.
+
+To clear the Turbopack cache:
+
+```bash
+docker volume rm next-build-cache
+```
+
+### Production Build
+
+Multi-stage Dockerfile — builds a lean runtime image with production-only `node_modules` running as a non-root user.
+
+```bash
+# Build and run (docker-compose.yml is in the project root)
+docker compose up --build
+
+# Or build manually
+docker build -f docker/Dockerfile.prod -t actual-admin-panel .
+docker run -p 3000:3000 actual-admin-panel
+```
+
+The production server uses ~256 MB RAM. The compose file includes Traefik labels for HTTPS termination.

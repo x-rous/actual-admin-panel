@@ -28,7 +28,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.abe-dev.rule=Host(`actual-admin-panel-dev.nafverse.com`)"
+      - "traefik.http.routers.abe-dev.rule=Host(`your-dev-domain.example.com`)"
       - "traefik.http.routers.abe-dev.entrypoints=websecure"
       - "traefik.http.routers.abe-dev.tls.certresolver=le"
       - "traefik.http.services.abe-dev.loadbalancer.server.port=3000"
