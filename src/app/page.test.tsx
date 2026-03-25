@@ -1,9 +1,14 @@
-import { render, screen } from '@testing-library/react'
-import Home from './page'
+import { redirect } from "next/navigation";
+import Home from "./page";
 
-describe('Home page', () => {
-  it('renders something on the page', () => {
-    render(<Home />)
-    expect(screen.getByRole('main')).toBeInTheDocument()
-  })
-})
+// next/navigation is mocked by jest config; capture calls
+jest.mock("next/navigation", () => ({
+  redirect: jest.fn(),
+}));
+
+describe("Root page", () => {
+  it("redirects to /connect", () => {
+    Home();
+    expect(redirect).toHaveBeenCalledWith("/connect");
+  });
+});

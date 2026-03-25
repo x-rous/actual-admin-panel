@@ -1,0 +1,33 @@
+# Git history — not needed in image, large
+.git
+.gitignore
+
+# Dependencies — each build stage runs npm ci from scratch
+node_modules
+
+# Build artifacts — rebuilt fresh in the builder stage
+.next
+.next-build
+
+# Test and coverage output
+coverage
+*.tsbuildinfo
+
+# Environment files — never bake secrets into an image
+.env
+.env.*
+!.env.example
+
+# Editor and local tooling
+.vscode
+.claude
+
+# Docker config itself — not needed inside the container
+docker
+
+# Logs
+*.log
+logs
+
+# OS artefacts
+.DS_Store
