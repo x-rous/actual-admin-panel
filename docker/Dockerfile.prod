@@ -1,22 +1,47 @@
+# ── Stage 1: production dependencies only ─────────────────────────────────────
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+# --omit=dev installs only the runtime dependencies (~60% smaller than full install)
+RUN npm ci --omit=dev
 
+# ── Stage 2: full build ────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
+# ── Stage 3: lean runtime image ───────────────────────────────────────────────
 FROM node:20-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
 
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+# 256 MB is sufficient for next start (production server is lean)
+ENV NODE_OPTIONS=--max-old-space-size=256
+
+# Non-root user for security
+RUN addgroup --system --gid 1001 nodejs \
+ && adduser  --system --uid 1001 nextjs
+
+# Static assets
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+# Build output — uses distDir: ".next-build" from next.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/.next-build ./.next-build
+
+# Config — next start reads this to locate the custom distDir
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
+
+# Production node_modules from the deps stage (no devDependencies)
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# package.json required by npm start
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+
+USER nextjs
 EXPOSE 3000
 CMD ["npm", "start"]

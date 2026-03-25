@@ -1,0 +1,106 @@
+/**
+ * Valid field → operator combinations for rule conditions and actions.
+ * Derived from Actual Budget's rule engine.
+ */
+
+export type FieldType = "string" | "id" | "number" | "date";
+
+export type FieldDef = {
+  label: string;
+  type: FieldType;
+  /** For id fields, which entity type to look up */
+  entity?: "payee" | "category" | "account";
+};
+
+export type OpDef = {
+  label: string;
+  /** Whether the op takes a value (false for e.g. onBudget/offBudget) */
+  hasValue: boolean;
+};
+
+export const CONDITION_FIELDS: Record<string, FieldDef> = {
+  payee:          { label: "Payee",          type: "id",     entity: "payee" },
+  account:        { label: "Account",        type: "id",     entity: "account" },
+  category:       { label: "Category",       type: "id",     entity: "category" },
+  amount:         { label: "Amount",         type: "number" },
+  notes:          { label: "Notes",          type: "string" },
+  date:           { label: "Date",           type: "date" },
+  imported_payee: { label: "Imported Payee", type: "string" },
+};
+
+export const ACTION_FIELDS: Record<string, FieldDef> = {
+  payee:    { label: "Payee",    type: "id", entity: "payee" },
+  category: { label: "Category", type: "id", entity: "category" },
+  notes:    { label: "Notes",    type: "string" },
+  cleared:  { label: "Cleared",  type: "string" },
+};
+
+export const STRING_OPS: Record<string, OpDef> = {
+  is:             { label: "is",              hasValue: true },
+  isNot:          { label: "is not",          hasValue: true },
+  contains:       { label: "contains",        hasValue: true },
+  doesNotContain: { label: "does not contain",hasValue: true },
+  oneOf:          { label: "is one of",       hasValue: true },
+  notOneOf:       { label: "is not one of",   hasValue: true },
+  matches:        { label: "matches",         hasValue: true },
+};
+
+export const ID_OPS: Record<string, OpDef> = {
+  is:       { label: "is",           hasValue: true },
+  isNot:    { label: "is not",       hasValue: true },
+  oneOf:    { label: "is one of",    hasValue: true },
+  notOneOf: { label: "is not one of",hasValue: true },
+};
+
+/** Account adds budget-type boolean ops that take no value. */
+export const ACCOUNT_OPS: Record<string, OpDef> = {
+  ...ID_OPS,
+  onBudget:  { label: "is on budget",  hasValue: false },
+  offBudget: { label: "is off budget", hasValue: false },
+};
+
+export const NUMBER_OPS: Record<string, OpDef> = {
+  is:        { label: "is",          hasValue: true },
+  isapprox:  { label: "is approx.",  hasValue: true },
+  gt:        { label: "is greater than", hasValue: true },
+  gte:       { label: "is ≥",        hasValue: true },
+  lt:        { label: "is less than",    hasValue: true },
+  lte:       { label: "is ≤",        hasValue: true },
+  isbetween: { label: "is between",  hasValue: true },
+};
+
+export const DATE_OPS: Record<string, OpDef> = {
+  is:       { label: "is",        hasValue: true },
+  isNot:    { label: "is not",    hasValue: true },
+  isapprox: { label: "is approx.",hasValue: true },
+  isAfter:  { label: "is after",  hasValue: true },
+  isBefore: { label: "is before", hasValue: true },
+};
+
+export const ACTION_OPS: Record<string, OpDef> = {
+  set: { label: "set to", hasValue: true },
+};
+
+export function getConditionOps(field: string): Record<string, OpDef> {
+  const def = CONDITION_FIELDS[field];
+  if (!def) return STRING_OPS;
+  switch (def.type) {
+    case "id":
+      return field === "account" ? ACCOUNT_OPS : ID_OPS;
+    case "number":
+      return NUMBER_OPS;
+    case "date":
+      return DATE_OPS;
+    default:
+      return STRING_OPS;
+  }
+}
+
+export const STAGE_LABELS: Record<string, string> = {
+  pre:     "Pre",
+  default: "Default",
+  post:    "Post",
+};
+
+export const STAGE_OPTIONS = ["pre", "default", "post"] as const;
+export const CONDITIONS_OP_OPTIONS = ["and", "or"] as const;

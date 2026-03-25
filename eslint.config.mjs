@@ -17,9 +17,13 @@ const eslintConfig = defineConfig([
   // Override default ignores
   globalIgnores([
     ".next/**",
+    ".next-build/**",
     "out/**",
     "build/**",
+    "dist/**",
+    "coverage/**",
     "next-env.d.ts",
+    "agents/**",
   ]),
 ]);
 

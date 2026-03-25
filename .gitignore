@@ -1,41 +1,51 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ── Dependencies ──────────────────────────────────────────────────────────────
+node_modules/
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# ── Next.js build output ──────────────────────────────────────────────────────
+.next/
+.next-build/
+out/
 
-# testing
-/coverage
+# ── Production / dist ─────────────────────────────────────────────────────────
+build/
+dist/
 
-# next.js
-/.next/
-/out/
+# ── Testing ───────────────────────────────────────────────────────────────────
+coverage/
 
-# production
-/build
+# ── Environment files ─────────────────────────────────────────────────────────
+# .env.example is committed intentionally as a template — all others are ignored
+.env
+.env.*
+!.env.example
 
-# misc
-.DS_Store
-*.pem
+# ── TypeScript ────────────────────────────────────────────────────────────────
+*.tsbuildinfo
+next-env.d.ts
 
-# debug
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# ── Editor ────────────────────────────────────────────────────────────────────
+.vscode/
 
-# vercel
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+*.pem
+
+# ── Deployment ────────────────────────────────────────────────────────────────
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# ── Local Claude Code settings (user-specific, not project config) ─────────────
+.claude/settings.local.json
+
+# ── Internal AI agent prompts (not relevant to end users) ─────────────────────
+agents/
+
+.next
+.next-build
