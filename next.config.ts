@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { version } from "./package.json";
 
 const nextConfig: NextConfig = {
   // Use a fresh output directory so Turbopack doesn't try to acquire a
@@ -8,7 +9,18 @@ const nextConfig: NextConfig = {
   // (HMR, dev overlay, etc.). Without this, Next.js 16 blocks cross-origin
   // requests from origins other than localhost, preventing React from fully
   // hydrating behind a reverse proxy in dev mode.
-  allowedDevOrigins: ["actual-admin-panel-dev.nafverse.com"],
+  // Comma-separated list of hostnames allowed to reach the dev server's HMR
+  // websocket. Set NEXT_DEV_ALLOWED_ORIGINS in .env.local when running behind
+  // a reverse proxy (e.g. Traefik). Not needed for plain localhost.
+  allowedDevOrigins: (process.env.NEXT_DEV_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((h) => h.trim())
+    .filter(Boolean),
+  // Inject package.json version at build time so the UI always reflects the
+  // current release without needing it set in .env files.
+  env: {
+    NEXT_PUBLIC_APP_VERSION: version,
+  },
 };
 
 export default nextConfig;

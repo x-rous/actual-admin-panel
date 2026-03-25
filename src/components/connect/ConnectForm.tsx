@@ -18,6 +18,7 @@ import { useStagedStore } from "@/store/staged";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type FormState = {
+  name: string;
   baseUrl: string;
   apiKey: string;
   budgetSyncId: string;
@@ -58,6 +59,7 @@ export function ConnectForm() {
   const discardAll = useStagedStore((s) => s.discardAll);
 
   const [form, setForm] = useState<FormState>({
+    name: "",
     baseUrl: "",
     apiKey: "",
     budgetSyncId: "",
@@ -89,7 +91,7 @@ export function ConnectForm() {
 
     const instance: ConnectionInstance = {
       id: crypto.randomUUID(),
-      label: deriveLabel(baseUrl),
+      label: form.name.trim() || deriveLabel(baseUrl),
       baseUrl,
       apiKey,
       budgetSyncId,
@@ -113,10 +115,24 @@ export function ConnectForm() {
       await new Promise((r) => setTimeout(r, 800));
       router.push("/rules");
     } catch (err) {
-      const message =
+      const status =
+        err && typeof err === "object" && "status" in err
+          ? (err as { status: number }).status
+          : -1;
+      const raw =
         err && typeof err === "object" && "message" in err
           ? String((err as { message: unknown }).message)
-          : "Could not reach the server. Check the URL, API key, and Sync ID.";
+          : "";
+      const message =
+        status === 0
+          ? "Could not reach the server. Check that the Server URL is correct and the server is running."
+          : status === 401 || status === 403
+          ? "Invalid API Key. Check the ACTUAL_API_KEY set on your actual-http-api server."
+          : status === 404
+          ? "Budget not found. Check that the Budget Sync ID is correct."
+          : status >= 500
+          ? `Server error (HTTP ${status}). The actual-http-api server returned an unexpected error.`
+          : raw || "Connection failed. Check the Server URL, API Key, and Budget Sync ID.";
       setStatus({ kind: "error", message });
       toast.error(message);
     }
@@ -160,6 +176,26 @@ export function ConnectForm() {
         </p>
 
         <div className="flex flex-col gap-4">
+          {/* Name (optional) */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="name">
+              Name{" "}
+              <span className="font-normal text-muted-foreground">(optional)</span>
+            </Label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="My Budget"
+              autoComplete="off"
+              value={form.name}
+              onChange={update("name")}
+              disabled={busy}
+            />
+            <p className="text-xs text-muted-foreground">
+              A friendly name shown in the connection switcher. Defaults to the server hostname.
+            </p>
+          </div>
+
           {/* Server URL */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="baseUrl">Server URL</Label>
@@ -206,7 +242,7 @@ export function ConnectForm() {
               disabled={busy}
             />
             <p className="text-xs text-muted-foreground">
-              Actual → Settings → Show advanced settings → Sync ID
+              In Actual Budget: <strong>Settings</strong> → <strong>Show advanced settings</strong> → <strong>Sync ID</strong>. Looks like <code className="rounded bg-muted px-1 font-mono">xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>.
             </p>
           </div>
 

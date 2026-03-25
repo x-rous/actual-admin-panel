@@ -1,14 +1,14 @@
-# Low-memory PREVIEW mode — production build served via `next start`.
-# ~80% less RAM than Turbopack dev. Use this for staging / QA / long-running VPS.
-# Usage: docker compose -f docker/docker-compose.preview.yml up --build
+# Production build served via `next start`.
+# ~80% less RAM than the Turbopack dev server.
+# Usage: docker compose up --build
 #
 # The build runs inside the container (multi-stage) so no local build artifacts
 # are needed on the host. Rebuilding takes a few minutes but the result is lean.
 
 services:
-  actual-admin-panel-preview:
+  actual-admin-panel:
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile.prod
     ports:
       - "3000:3000"
@@ -16,11 +16,11 @@ services:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
       # Production server is lean — 256 MB is plenty for Next.js `next start`
-      NODE_OPTIONS: --max-old-space-size=256 
+      NODE_OPTIONS: --max-old-space-size=256
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.actual-admin-panel.rule=Host(`actual-admin-panel.nafverse.com`)"
+      - "traefik.http.routers.actual-admin-panel.rule=Host(`your-domain.example.com`)"
       - "traefik.http.routers.actual-admin-panel.entrypoints=websecure"
       - "traefik.http.routers.actual-admin-panel.tls.certresolver=le"
       - "traefik.http.services.actual-admin-panel.loadbalancer.server.port=3000"
