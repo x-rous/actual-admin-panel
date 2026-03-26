@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Plus, Trash2, ChevronsUpDown, Check, Search, X } from "lucide-react";
+import { Plus, Trash2, ChevronsUpDown, Check, Search, X, Code } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -438,14 +438,17 @@ function ConditionValueInput({
     );
   }
 
-  // Number field → number input
+  // Number field → number input (value must be a JS number, not a string)
   if (fieldDef?.type === "number") {
     return (
       <input
         type="number"
         className={inputCls}
         value={valueToString(condition.value)}
-        onChange={(e) => onChange({ ...condition, value: e.target.value })}
+        onChange={(e) => onChange({
+          ...condition,
+          value: e.target.value === "" ? "" : Number(e.target.value),
+        })}
         placeholder="value…"
       />
     );
@@ -636,9 +639,11 @@ export function RuleDrawer({ open, onOpenChange, ruleId }: Props) {
   const [conditionsOp, setConditionsOp] = useState<ConditionsOp>("and");
   const [conditions, setConditions]     = useState<ConditionOrAction[]>([]);
   const [actions, setActions]           = useState<ConditionOrAction[]>([]);
+  const [showJson, setShowJson]         = useState(false);
 
   // Populate local state whenever the drawer opens
   useEffect(() => {
+    setShowJson(false);
     if (!open) return;
     if (existingRule) {
       setStage(existingRule.stage);
@@ -792,7 +797,24 @@ export function RuleDrawer({ open, onOpenChange, ruleId }: Props) {
           </div>
         </div>
 
-        <SheetFooter className="flex-row justify-end gap-2 border-t px-4 py-3">
+        {showJson && (
+          <div className="shrink-0 border-t bg-muted/30 px-4 py-3">
+            <pre className="max-h-56 overflow-auto text-xs text-muted-foreground">
+              {JSON.stringify({ stage, conditionsOp, conditions, actions }, null, 2)}
+            </pre>
+          </div>
+        )}
+
+        <SheetFooter className="shrink-0 flex-row items-center gap-2 border-t px-4 py-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mr-auto text-xs text-muted-foreground"
+            onClick={() => setShowJson((v) => !v)}
+          >
+            <Code className="h-3 w-3 mr-1" />
+            {showJson ? "Hide JSON" : "JSON"}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>

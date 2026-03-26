@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Pencil, Trash2, RotateCcw, Copy, AlertTriangle, Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -141,9 +142,13 @@ function stageBadgeVariant(stage: string) {
 
 type Props = {
   onEdit: (id: string) => void;
+  /** When set, only rules that reference this payee ID in a condition or action are shown. */
+  payeeId?: string | null;
+  /** When set, only rules that reference this category ID in a condition or action are shown. */
+  categoryId?: string | null;
 };
 
-export function RulesTable({ onEdit }: Props) {
+export function RulesTable({ onEdit, payeeId, categoryId }: Props) {
   const stagedRules = useStagedStore((s) => s.rules);
   const payees = useStagedStore((s) => s.payees);
   const categories = useStagedStore((s) => s.categories);
@@ -153,6 +158,8 @@ export function RulesTable({ onEdit }: Props) {
   const revertEntity = useStagedStore((s) => s.revertEntity);
   const clearSaveError = useStagedStore((s) => s.clearSaveError);
   const pushUndo = useStagedStore((s) => s.pushUndo);
+
+  const router = useRouter();
 
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
   const [search, setSearch] = useState("");
@@ -166,6 +173,24 @@ export function RulesTable({ onEdit }: Props) {
     return Object.values(stagedRules).filter((s) => {
       if (s.isDeleted) return false;
       if (stageFilter !== "all" && normalizeStage(s.entity.stage) !== stageFilter) return false;
+      if (payeeId) {
+        const parts = [...s.entity.conditions, ...s.entity.actions];
+        const hasPayee = parts.some((part) => {
+          if (part.field !== "payee" && part.field !== "imported_payee") return false;
+          const ids = Array.isArray(part.value) ? part.value : [part.value];
+          return ids.includes(payeeId);
+        });
+        if (!hasPayee) return false;
+      }
+      if (categoryId) {
+        const parts = [...s.entity.conditions, ...s.entity.actions];
+        const hasCategory = parts.some((part) => {
+          if (part.field !== "category") return false;
+          const ids = Array.isArray(part.value) ? part.value : [part.value];
+          return ids.includes(categoryId);
+        });
+        if (!hasCategory) return false;
+      }
       if (search.trim()) {
         const q = search.toLowerCase();
         const preview = rulePreview(s.entity, entityMaps).toLowerCase();
@@ -173,7 +198,7 @@ export function RulesTable({ onEdit }: Props) {
       }
       return true;
     });
-  }, [stagedRules, stageFilter, search, entityMaps]);
+  }, [stagedRules, stageFilter, payeeId, categoryId, search, entityMaps]);
 
   function handleDelete(id: string) {
     pushUndo();
@@ -213,6 +238,35 @@ export function RulesTable({ onEdit }: Props) {
             </Button>
           ))}
         </div>
+
+        {payeeId && (
+          <div className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs text-primary">
+            <span>
+              Payee: <span className="font-medium">{payees[payeeId]?.entity.name ?? payeeId}</span>
+            </span>
+            <button
+              onClick={() => router.push("/rules")}
+              className="text-primary/60 hover:text-primary"
+              title="Clear payee filter"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+        {categoryId && (
+          <div className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs text-primary">
+            <span>
+              Category: <span className="font-medium">{categories[categoryId]?.entity.name ?? categoryId}</span>
+            </span>
+            <button
+              onClick={() => router.push("/rules")}
+              className="text-primary/60 hover:text-primary"
+              title="Clear category filter"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           <div className="relative">

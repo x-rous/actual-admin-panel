@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { RefreshCw, Download, Upload, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -135,6 +136,11 @@ export function RulesView() {
   usePayees();
   useCategoryGroups();
 
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const payeeIdFilter = searchParams.get("payeeId");
+  const categoryIdFilter = searchParams.get("categoryId");
+
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const stagedRules     = useStagedStore((s) => s.rules);
@@ -151,6 +157,15 @@ export function RulesView() {
 
   function openNewRule()          { setEditingRuleId(null); setDrawerOpen(true); }
   function openEditRule(id: string) { setEditingRuleId(id); setDrawerOpen(true); }
+
+  // Auto-open the new rule drawer when navigated here with ?new=1
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      openNewRule();
+      router.replace("/rules");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Export helpers ──────────────────────────────────────────────────────────
 
@@ -466,7 +481,7 @@ export function RulesView() {
       </div>
 
       {/* Table */}
-      <RulesTable onEdit={openEditRule} />
+      <RulesTable onEdit={openEditRule} payeeId={payeeIdFilter} categoryId={categoryIdFilter} />
 
       {/* Drawer */}
       <RuleDrawer
