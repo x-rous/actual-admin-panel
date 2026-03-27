@@ -311,10 +311,22 @@ export const useStagedStore = create<StagedStoreState & StagedStoreActions>((set
     }),
 
   loadSchedules: (schedules) =>
-    set({
-      schedules: Object.fromEntries(
-        schedules.map((s) => [s.id, makeStaged(s)])
-      ),
+    set((state) => {
+      const serverIds = new Set(schedules.map((s) => s.id));
+      const newMap: StagedMap<Schedule> = {};
+      for (const s of schedules) {
+        const existing = state.schedules[s.id];
+        const entry = makeStaged(s);
+        if (existing?.saveError) {
+          entry.saveError = existing.saveError;
+          if (existing.isUpdated) { entry.entity = existing.entity; entry.isUpdated = true; }
+        }
+        newMap[s.id] = entry;
+      }
+      for (const [id, entry] of Object.entries(state.schedules)) {
+        if (!serverIds.has(id) && entry.isNew) newMap[id] = entry;
+      }
+      return { schedules: newMap };
     }),
 
   stageNew: (entityType, entity) =>
@@ -381,10 +393,21 @@ export const useStagedStore = create<StagedStoreState & StagedStoreActions>((set
       const stack = [...state.undoStack];
       const prev = stack.pop();
       if (!prev) return {};
+
+      // Prune orphaned merge dependencies — any newRuleId that no longer exists
+      // in the reverted rules map was part of the undone operation and must be
+      // cleared, otherwise the next save will try to honour a dependency for a
+      // rule that no longer exists in staged state.
+      const nextMergeDeps = { ...state.mergeDependencies };
+      for (const newRuleId of Object.keys(nextMergeDeps)) {
+        if (!prev.rules[newRuleId]) delete nextMergeDeps[newRuleId];
+      }
+
       return {
         ...prev,
         undoStack: stack,
         redoStack: [snapshot(state), ...state.redoStack],
+        mergeDependencies: nextMergeDeps,
       };
     }),
 
@@ -392,10 +415,18 @@ export const useStagedStore = create<StagedStoreState & StagedStoreActions>((set
     set((state) => {
       const [next, ...rest] = state.redoStack;
       if (!next) return {};
+
+      // Prune merge dependencies that belong to rules no longer in the redo target
+      const nextMergeDeps = { ...state.mergeDependencies };
+      for (const newRuleId of Object.keys(nextMergeDeps)) {
+        if (!next.rules[newRuleId]) delete nextMergeDeps[newRuleId];
+      }
+
       return {
         ...next,
         undoStack: [...state.undoStack, snapshot(state)],
         redoStack: rest,
+        mergeDependencies: nextMergeDeps,
       };
     }),
 }));

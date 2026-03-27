@@ -21,7 +21,10 @@ export function usePayees() {
       return getPayees(connection);
     },
     enabled: !!connection,
-    staleTime: 0,
+    // Architecture: React Query is a fetch trigger and loading/error provider
+    // only. All entity data lives in the Zustand staged store (loadPayees).
+    // See useAccounts.ts for a full explanation of these settings.
+    staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });

@@ -5,17 +5,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useStagedStore } from "@/store/staged";
 import { useConnectionStore, selectActiveInstance } from "@/store/connection";
 import { createRule, updateRule, deleteRule } from "@/lib/api/rules";
+import { extractMessage, computeSaveOperations } from "@/lib/saveUtils";
 import { CONDITION_FIELDS, ACTION_FIELDS } from "../utils/ruleFields";
 import type { SaveResult, SaveSummary } from "@/types/diff";
-import type { StagedEntity } from "@/types/staged";
 import type { Rule, ConditionOrAction, AmountRange } from "@/types/entities";
-
-function extractMessage(err: unknown, fallback: string): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "object" && err !== null && "message" in err)
-    return String((err as { message: unknown }).message);
-  return fallback;
-}
 
 /**
  * Prepare condition/action values for the API:
@@ -52,20 +45,6 @@ function coerceRule(rule: Rule): Rule {
   };
 }
 
-function computeSaveOperations(staged: Record<string, StagedEntity<Rule>>) {
-  const toCreate: Rule[] = [];
-  const toUpdate: Rule[] = [];
-  const toDelete: string[] = [];
-
-  for (const s of Object.values(staged)) {
-    if (s.isNew && !s.isDeleted) toCreate.push(s.entity);
-    else if (s.isDeleted && !s.isNew) toDelete.push(s.entity.id);
-    else if (s.isUpdated && !s.isDeleted) toUpdate.push(s.entity);
-  }
-
-  return { toCreate, toUpdate, toDelete };
-}
-
 export function useRulesSave() {
   const [isSaving, setIsSaving] = useState(false);
 
@@ -78,58 +57,62 @@ export function useRulesSave() {
 
     setIsSaving(true);
 
-    const { toCreate, toUpdate, toDelete } = computeSaveOperations(staged);
+    const { toCreate, toUpdate, toDelete } = computeSaveOperations<Rule>(staged);
     const mergeDeps = useStagedStore.getState().mergeDependencies;
 
-    // IDs that are only allowed to be deleted after their linked new rule is created successfully.
+    // IDs that are only allowed to be deleted after their linked new rule is created.
     const allMergeDepIds = new Set(Object.values(mergeDeps).flat());
 
     const succeeded: SaveResult[] = [];
     const failed: SaveResult[] = [];
     const succeededCreateIds = new Set<string>();
 
-    // ── Creates (always first) ─────────────────────────────────────────────────
-    for (const raw of toCreate) {
-      const rule = coerceRule(raw);
-      try {
-        await createRule(connection, {
+    // ── Creates (parallel) ────────────────────────────────────────────────────
+    const createResults = await Promise.allSettled(
+      toCreate.map((raw) => {
+        const rule = coerceRule(raw);
+        return createRule(connection, {
           stage: rule.stage,
           conditionsOp: rule.conditionsOp,
           conditions: rule.conditions,
           actions: rule.actions,
         });
-        succeeded.push({ status: "success", id: rule.id });
-        succeededCreateIds.add(rule.id);
-      } catch (err) {
-        failed.push({
-          status: "error",
-          id: rule.id,
-          message: extractMessage(err, "Create failed"),
-        });
+      })
+    );
+    for (let i = 0; i < toCreate.length; i++) {
+      const id = toCreate[i].id;
+      const r  = createResults[i];
+      if (r.status === "fulfilled") {
+        succeeded.push({ status: "success", id });
+        succeededCreateIds.add(id);
+      } else {
+        failed.push({ status: "error", id, message: extractMessage(r.reason, "Create failed") });
       }
     }
 
-    // ── Updates ────────────────────────────────────────────────────────────────
-    for (const raw of toUpdate) {
-      const rule = coerceRule(raw);
-      try {
-        await updateRule(connection, rule.id, {
+    // ── Updates (parallel) ────────────────────────────────────────────────────
+    const updateResults = await Promise.allSettled(
+      toUpdate.map((raw) => {
+        const rule = coerceRule(raw);
+        return updateRule(connection, rule.id, {
           stage: rule.stage,
           conditionsOp: rule.conditionsOp,
           conditions: rule.conditions,
           actions: rule.actions,
         });
-        succeeded.push({ status: "success", id: rule.id });
-      } catch (err) {
-        failed.push({
-          status: "error",
-          id: rule.id,
-          message: extractMessage(err, "Update failed"),
-        });
+      })
+    );
+    for (let i = 0; i < toUpdate.length; i++) {
+      const id = toUpdate[i].id;
+      const r  = updateResults[i];
+      if (r.status === "fulfilled") {
+        succeeded.push({ status: "success", id });
+      } else {
+        failed.push({ status: "error", id, message: extractMessage(r.reason, "Update failed") });
       }
     }
 
-    // ── Deletes ────────────────────────────────────────────────────────────────
+    // ── Deletes ───────────────────────────────────────────────────────────────
     // Build the set of merge-dependent IDs that are now safe to delete
     // (their linked new rule was created successfully).
     const safeToDeleteFromMerge = new Set<string>();
@@ -139,26 +122,29 @@ export function useRulesSave() {
       }
     }
 
-    // IDs whose linked create failed — leave them staged so they reappear in the table.
     const skippedMergeDeps: string[] = [];
+    const safeToDelete: string[] = [];
 
     for (const id of toDelete) {
-      const isMergeDep = allMergeDepIds.has(id);
-      if (isMergeDep && !safeToDeleteFromMerge.has(id)) {
-        // Linked create failed — skip the server delete and revert the staged deletion
-        // so the original rule reappears in the table for the user to retry or discard.
+      if (allMergeDepIds.has(id) && !safeToDeleteFromMerge.has(id)) {
+        // Linked create failed — revert the staged deletion so the original
+        // rule reappears in the table for the user to retry or discard.
         skippedMergeDeps.push(id);
-        continue;
+      } else {
+        safeToDelete.push(id);
       }
-      try {
-        await deleteRule(connection, id);
+    }
+
+    const deleteResults = await Promise.allSettled(
+      safeToDelete.map((id) => deleteRule(connection, id))
+    );
+    for (let i = 0; i < safeToDelete.length; i++) {
+      const id = safeToDelete[i];
+      const r  = deleteResults[i];
+      if (r.status === "fulfilled") {
         succeeded.push({ status: "success", id });
-      } catch (err) {
-        failed.push({
-          status: "error",
-          id,
-          message: extractMessage(err, "Delete failed"),
-        });
+      } else {
+        failed.push({ status: "error", id, message: extractMessage(r.reason, "Delete failed") });
       }
     }
 
@@ -171,10 +157,9 @@ export function useRulesSave() {
     }
 
     // Remove temp-UUID staged entries for rules that were successfully created.
-    // Without this, `loadRules` after the refetch preserves every `isNew` entry
-    // not found in the server response — causing the temp entry to linger alongside
-    // the server's newly assigned rule, producing a duplicate row.
-    {
+    // Without this, loadRules after the refetch preserves every isNew entry
+    // not found in the server response — causing the temp entry to linger.
+    if (succeededCreateIds.size > 0) {
       const store = useStagedStore.getState();
       for (const id of succeededCreateIds) store.stageDelete("rules", id);
     }

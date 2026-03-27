@@ -1,9 +1,16 @@
 /**
  * Server-side proxy for the jhonderson/actual-http-api.
  *
- * All browser → actual-http-api calls go through here so that:
- *  - CORS is never an issue (fetch runs on the server)
- *  - Credentials are never exposed in browser network logs beyond this app
+ * All browser → actual-http-api calls go through here so that CORS is never
+ * an issue (the upstream fetch runs on the server, not the browser).
+ *
+ * Security note: connection credentials (apiKey, encryptionPassword) are sent
+ * from the browser in the POST body and are visible in browser DevTools Network
+ * tab. This is a known trade-off for a self-hosted admin tool — the proxy
+ * eliminates CORS friction but does not hide credentials from the browser.
+ *
+ * For multi-tenant or public deployments, store connections server-side (e.g.
+ * in an encrypted session cookie) so credentials never leave the server.
  *
  * POST /api/proxy
  * Body: { connection: ConnectionInstance, path: string, method?: string, body?: unknown }
@@ -54,6 +61,7 @@ export async function POST(request: NextRequest) {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(15_000),
     });
   } catch (err) {
     const message =

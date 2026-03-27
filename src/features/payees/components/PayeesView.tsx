@@ -4,31 +4,12 @@ import { useRef } from "react";
 import { Plus, Download, Upload, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { CSV_MAX_BYTES } from "@/lib/csv";
 import { useStagedStore } from "@/store/staged";
 import { usePayees } from "../hooks/usePayees";
 import { PayeesTable } from "./PayeesTable";
-
-/** Parse a single CSV line respecting double-quoted fields. */
-function parseCsvLine(line: string): string[] {
-  const fields: string[] = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
-      else if (ch === '"') { inQuotes = false; }
-      else { current += ch; }
-    } else {
-      if (ch === '"') { inQuotes = true; }
-      else if (ch === ',') { fields.push(current); current = ""; }
-      else { current += ch; }
-    }
-  }
-  fields.push(current);
-  return fields;
-}
+import { exportPayeesToCsv } from "../csv/payeesCsvExport";
+import { importPayeesFromCsv } from "../csv/payeesCsvImport";
 
 export function PayeesView() {
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -48,14 +29,8 @@ export function PayeesView() {
   }
 
   function handleExportCsv() {
-    const rows = Object.values(staged).filter((s) => !s.isDeleted);
-    const header = "id,name,type";
-    const body = rows
-      .map(({ entity: { id, name, transferAccountId } }) =>
-        `${id},"${name.replace(/"/g, '""')}",${transferAccountId ? "transfer" : "regular"}`
-      )
-      .join("\n");
-    const blob = new Blob(["\uFEFF" + `${header}\n${body}`], { type: "text/csv;charset=utf-8" });
+    const csv = exportPayeesToCsv(staged);
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -69,42 +44,29 @@ export function PayeesView() {
     e.target.value = "";
     if (!file) return;
 
+    if (file.size > CSV_MAX_BYTES) {
+      toast.error("File is too large (max 5 MB).");
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result;
       if (typeof text !== "string") return;
 
-      const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
-      if (lines.length < 2) {
-        toast.error("CSV has no data rows.");
-        return;
-      }
+      const result = importPayeesFromCsv(text);
+      if ("error" in result) { toast.error(result.error); return; }
 
-      const headers = parseCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
-      const nameIdx = headers.indexOf("name");
-
-      if (nameIdx === -1) {
-        toast.error("CSV must have a \"name\" column.");
-        return;
-      }
-
-      let imported = 0;
-      let skipped = 0;
       pushUndo();
-
-      for (let i = 1; i < lines.length; i++) {
-        const fields = parseCsvLine(lines[i]);
-        const name = fields[nameIdx]?.trim() ?? "";
-        if (!name) { skipped++; continue; }
-
-        stageNew("payees", { id: crypto.randomUUID(), name });
-        imported++;
+      for (const payee of result.payees) {
+        stageNew("payees", { id: crypto.randomUUID(), ...payee });
       }
 
+      const imported = result.payees.length;
       if (imported === 0) {
         toast.warning("No valid rows found in CSV.");
-      } else if (skipped > 0) {
-        toast.success(`Imported ${imported} payee${imported !== 1 ? "s" : ""} (${skipped} skipped — empty name).`);
+      } else if (result.skipped > 0) {
+        toast.success(`Imported ${imported} payee${imported !== 1 ? "s" : ""} (${result.skipped} skipped — empty name).`);
       } else {
         toast.success(`Imported ${imported} payee${imported !== 1 ? "s" : ""}.`);
       }

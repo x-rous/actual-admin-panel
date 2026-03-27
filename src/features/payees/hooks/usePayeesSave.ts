@@ -5,30 +5,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useStagedStore } from "@/store/staged";
 import { useConnectionStore, selectActiveInstance } from "@/store/connection";
 import { createPayee, updatePayee, deletePayee } from "@/lib/api/payees";
+import { extractMessage, computeSaveOperations } from "@/lib/saveUtils";
 import type { SaveResult, SaveSummary } from "@/types/diff";
-import type { StagedEntity } from "@/types/staged";
 import type { Payee } from "@/types/entities";
-
-function extractMessage(err: unknown, fallback: string): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "object" && err !== null && "message" in err)
-    return String((err as { message: unknown }).message);
-  return fallback;
-}
-
-function computeSaveOperations(staged: Record<string, StagedEntity<Payee>>) {
-  const toCreate: Payee[] = [];
-  const toUpdate: Payee[] = [];
-  const toDelete: string[] = [];
-
-  for (const s of Object.values(staged)) {
-    if (s.isNew && !s.isDeleted) toCreate.push(s.entity);
-    else if (s.isDeleted && !s.isNew) toDelete.push(s.entity.id);
-    else if (s.isUpdated && !s.isDeleted) toUpdate.push(s.entity);
-  }
-
-  return { toCreate, toUpdate, toDelete };
-}
 
 export function usePayeesSave() {
   const [isSaving, setIsSaving] = useState(false);
@@ -47,50 +26,61 @@ export function usePayeesSave() {
 
     setIsSaving(true);
 
-    const { toCreate, toUpdate, toDelete } = computeSaveOperations(staged);
+    const { toCreate, toUpdate, toDelete } = computeSaveOperations<Payee>(staged);
     const succeeded: SaveResult[] = [];
     const failed: SaveResult[] = [];
+    const succeededCreateIds = new Set<string>();
 
-    for (const payee of toCreate) {
-      try {
-        await createPayee(connection, { name: payee.name });
-        succeeded.push({ status: "success", id: payee.id });
-      } catch (err) {
-        failed.push({
-          status: "error",
-          id: payee.id,
-          message: extractMessage(err, "Create failed"),
-        });
-      }
-    }
-
-    for (const payee of toUpdate) {
-      try {
-        await updatePayee(connection, payee.id, { name: payee.name });
-        succeeded.push({ status: "success", id: payee.id });
-      } catch (err) {
-        failed.push({
-          status: "error",
-          id: payee.id,
-          message: extractMessage(err, "Update failed"),
-        });
-      }
-    }
-
-    for (const id of toDelete) {
-      try {
-        await deletePayee(connection, id);
+    // ── Creates (parallel) ────────────────────────────────────────────────────
+    const createResults = await Promise.allSettled(
+      toCreate.map((p) => createPayee(connection, { name: p.name }))
+    );
+    for (let i = 0; i < toCreate.length; i++) {
+      const id = toCreate[i].id;
+      const r  = createResults[i];
+      if (r.status === "fulfilled") {
         succeeded.push({ status: "success", id });
-      } catch (err) {
-        failed.push({
-          status: "error",
-          id,
-          message: extractMessage(err, "Delete failed"),
-        });
+        succeededCreateIds.add(id);
+      } else {
+        failed.push({ status: "error", id, message: extractMessage(r.reason, "Create failed") });
+      }
+    }
+
+    // ── Updates (parallel) ────────────────────────────────────────────────────
+    const updateResults = await Promise.allSettled(
+      toUpdate.map((p) => updatePayee(connection, p.id, { name: p.name }))
+    );
+    for (let i = 0; i < toUpdate.length; i++) {
+      const id = toUpdate[i].id;
+      const r  = updateResults[i];
+      if (r.status === "fulfilled") {
+        succeeded.push({ status: "success", id });
+      } else {
+        failed.push({ status: "error", id, message: extractMessage(r.reason, "Update failed") });
+      }
+    }
+
+    // ── Deletes (parallel) ────────────────────────────────────────────────────
+    const deleteResults = await Promise.allSettled(
+      toDelete.map((id) => deletePayee(connection, id))
+    );
+    for (let i = 0; i < toDelete.length; i++) {
+      const id = toDelete[i];
+      const r  = deleteResults[i];
+      if (r.status === "fulfilled") {
+        succeeded.push({ status: "success", id });
+      } else {
+        failed.push({ status: "error", id, message: extractMessage(r.reason, "Delete failed") });
       }
     }
 
     setIsSaving(false);
+
+    // Remove temp-UUID staged entries for successful creates before refetch.
+    if (succeededCreateIds.size > 0) {
+      const store = useStagedStore.getState();
+      for (const id of succeededCreateIds) store.stageDelete("payees", id);
+    }
 
     if (failed.length > 0) {
       const errors: Record<string, string> = {};
