@@ -1,4 +1,5 @@
 import { exportRulesToCsv } from "./rulesCsvExport";
+import { importRulesFromCsv } from "./rulesCsvImport";
 import type { Rule } from "@/types/entities";
 import type { StagedMap } from "@/types/staged";
 
@@ -114,7 +115,6 @@ describe("exportRulesToCsv", () => {
   });
 
   it("round-trips: exported CSV can be re-imported with the same structure", () => {
-    const { importRulesFromCsv } = require("./rulesCsvImport");
     const rule = makeRule("r1", {
       stage: "pre",
       conditionsOp: "or",

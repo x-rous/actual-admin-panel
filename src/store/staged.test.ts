@@ -51,7 +51,7 @@ describe("stageNew", () => {
 
 describe("stageUpdate", () => {
   it("updates the entity and marks it as isUpdated", () => {
-    const { stageNew, stageUpdate, loadAccounts } = useStagedStore.getState();
+    const { stageUpdate, loadAccounts } = useStagedStore.getState();
 
     // Load a server account first so it is not isNew
     loadAccounts([account("a1", "Checking")]);

@@ -21,13 +21,6 @@ function makeMaps(
   };
 }
 
-const minimalCsv = (ruleId: string, extraRows: string[] = []) =>
-  [
-    "rule_id,stage,conditions_op,row_type,field,op,value",
-    `${ruleId},default,and,condition,notes,contains,groceries`,
-    `${ruleId},,,action,category,set,Food`,
-    ...extraRows,
-  ].join("\n");
 
 describe("importRulesFromCsv", () => {
   it("returns an error for text shorter than CSV_MAX_BYTES check (no rows)", () => {
