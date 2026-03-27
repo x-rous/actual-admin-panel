@@ -21,11 +21,17 @@ export function useAccounts() {
       return getAccounts(connection);
     },
     enabled: !!connection,
-    // Do not reuse stale cache — always reload on mount so the grid
-    // reflects what is currently on the server.
-    staleTime: 0,
-    // Never refetch in the background: a focus or interval refetch would
-    // call loadAccounts and silently wipe all unsaved staged changes.
+    // Architecture: React Query is a fetch trigger and loading/error provider
+    // only. All entity data lives in the Zustand staged store (loadAccounts).
+    //
+    // staleTime: Infinity — we own cache invalidation via invalidateQueries
+    // after a save. The queryKey already changes on connection switch, which
+    // triggers a fresh fetch. Auto-staleness is not needed and would cause
+    // unnecessary refetches on remount.
+    //
+    // refetchOnWindowFocus/Reconnect: disabled because a background refetch
+    // would call loadAccounts and silently overwrite unsaved staged edits.
+    staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });

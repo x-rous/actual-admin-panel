@@ -4,41 +4,12 @@ import { useRef, useState } from "react";
 import { RefreshCw, Download, Upload, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { CSV_MAX_BYTES } from "@/lib/csv";
 import { useStagedStore } from "@/store/staged";
 import { useCategoryGroups } from "../hooks/useCategoryGroups";
 import { CategoriesTable } from "./CategoriesTable";
-
-/** Parse a single CSV line respecting double-quoted fields. */
-function parseCsvLine(line: string): string[] {
-  const fields: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
-      else if (ch === '"') { inQuotes = false; }
-      else { current += ch; }
-    } else {
-      if (ch === '"') { inQuotes = true; }
-      else if (ch === ',') { fields.push(current); current = ""; }
-      else { current += ch; }
-    }
-  }
-  fields.push(current);
-  return fields;
-}
-
-function parseBoolean(value: string): boolean {
-  const v = value.trim().toLowerCase();
-  return v === "true" || v === "1" || v === "yes";
-}
-
-function csvField(value: string): string {
-  return value.includes(",") || value.includes('"') || value.includes("\n")
-    ? `"${value.replace(/"/g, '""')}"`
-    : value;
-}
+import { exportCategoriesToCsv } from "../csv/categoriesCsvExport";
+import { importCategoriesFromCsv } from "../csv/categoriesCsvImport";
 
 export function CategoriesView() {
   const { isLoading, isError, error, refetch } = useCategoryGroups();
@@ -67,41 +38,8 @@ export function CategoriesView() {
 
   // ── Export ────────────────────────────────────────────────────────────────────
   function handleExportCsv() {
-    const lines: string[] = ["type,name,group,is_income,hidden"];
-
-    // Emit groups, then their categories, ordered income-first
-    const groups = Object.values(stagedGroups)
-      .filter((s) => !s.isDeleted)
-      .sort((a, b) => Number(b.entity.isIncome) - Number(a.entity.isIncome));
-
-    for (const g of groups) {
-      lines.push(
-        [
-          "group",
-          csvField(g.entity.name),
-          "",
-          String(g.entity.isIncome),
-          String(g.entity.hidden),
-        ].join(",")
-      );
-
-      const cats = Object.values(stagedCats)
-        .filter((s) => !s.isDeleted && s.entity.groupId === g.entity.id);
-
-      for (const c of cats) {
-        lines.push(
-          [
-            "category",
-            csvField(c.entity.name),
-            csvField(g.entity.name),
-            String(c.entity.isIncome),
-            String(c.entity.hidden),
-          ].join(",")
-        );
-      }
-    }
-
-    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const csv = exportCategoriesToCsv(stagedGroups, stagedCats);
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -116,95 +54,42 @@ export function CategoriesView() {
     e.target.value = "";
     if (!file) return;
 
+    if (file.size > CSV_MAX_BYTES) {
+      toast.error("File is too large (max 5 MB).");
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result;
       if (typeof text !== "string") return;
 
-      const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
-      if (lines.length < 2) { toast.error("CSV has no data rows."); return; }
+      const existingGroups = Object.values(stagedGroups)
+        .filter((s) => !s.isDeleted)
+        .map((s) => ({ name: s.entity.name, id: s.entity.id }));
 
-      const headers = parseCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
-      const typeIdx      = headers.indexOf("type");
-      const nameIdx      = headers.indexOf("name");
-      const groupIdx     = headers.indexOf("group");
-      const isIncomeIdx  = headers.indexOf("is_income");
-      const hiddenIdx    = headers.indexOf("hidden");
-
-      if (typeIdx === -1 || nameIdx === -1) {
-        toast.error('CSV must have "type" and "name" columns.');
-        return;
-      }
-
-      // Build a name→id map from existing staged groups
-      const groupNameToId = new Map<string, string>();
-      for (const s of Object.values(stagedGroups)) {
-        if (!s.isDeleted) groupNameToId.set(s.entity.name.trim().toLowerCase(), s.entity.id);
-      }
+      const result = importCategoriesFromCsv(text, existingGroups);
+      if ("error" in result) { toast.error(result.error); return; }
 
       pushUndo();
-
-      let groupsImported = 0;
-      let catsImported = 0;
-      let skipped = 0;
-
-      // First pass: create groups so categories can reference them
-      for (let i = 1; i < lines.length; i++) {
-        const fields = parseCsvLine(lines[i]);
-        const type = fields[typeIdx]?.trim().toLowerCase() ?? "";
-        if (type !== "group") continue;
-
-        const name = fields[nameIdx]?.trim() ?? "";
-        if (!name) { skipped++; continue; }
-
-        const key = name.toLowerCase();
-        if (groupNameToId.has(key)) {
-          // Group already exists — skip creating it but keep the mapping
-          skipped++;
-          continue;
-        }
-
-        const id = crypto.randomUUID();
-        const isIncome = isIncomeIdx !== -1 ? parseBoolean(fields[isIncomeIdx] ?? "") : false;
-        const hidden   = hiddenIdx   !== -1 ? parseBoolean(fields[hiddenIdx]   ?? "") : false;
-
-        stageNew("categoryGroups", { id, name, isIncome, hidden, categoryIds: [] });
-        groupNameToId.set(key, id);
-        groupsImported++;
+      for (const group of result.groups) {
+        stageNew("categoryGroups", { ...group, categoryIds: [] });
+      }
+      for (const cat of result.categories) {
+        stageNew("categories", { id: crypto.randomUUID(), ...cat });
       }
 
-      // Second pass: create categories
-      for (let i = 1; i < lines.length; i++) {
-        const fields = parseCsvLine(lines[i]);
-        const type = fields[typeIdx]?.trim().toLowerCase() ?? "";
-        if (type !== "category") continue;
-
-        const name = fields[nameIdx]?.trim() ?? "";
-        if (!name) { skipped++; continue; }
-
-        const groupName = groupIdx !== -1 ? fields[groupIdx]?.trim() ?? "" : "";
-        const groupId = groupNameToId.get(groupName.toLowerCase());
-
-        if (!groupId) {
-          skipped++;
-          continue;
-        }
-
-        const isIncome = isIncomeIdx !== -1 ? parseBoolean(fields[isIncomeIdx] ?? "") : false;
-        const hidden   = hiddenIdx   !== -1 ? parseBoolean(fields[hiddenIdx]   ?? "") : false;
-
-        stageNew("categories", { id: crypto.randomUUID(), name, groupId, isIncome, hidden });
-        catsImported++;
-      }
-
+      const groupsImported = result.groups.length;
+      const catsImported = result.categories.length;
       const total = groupsImported + catsImported;
+
       if (total === 0) {
-        toast.warning(skipped > 0 ? `No rows imported — ${skipped} skipped.` : "No valid rows found in CSV.");
+        toast.warning(result.skipped > 0 ? `No rows imported — ${result.skipped} skipped.` : "No valid rows found in CSV.");
       } else {
         const parts: string[] = [];
         if (groupsImported > 0) parts.push(`${groupsImported} group${groupsImported !== 1 ? "s" : ""}`);
-        if (catsImported > 0)   parts.push(`${catsImported} categor${catsImported !== 1 ? "ies" : "y"}`);
-        const suffix = skipped > 0 ? ` (${skipped} skipped)` : "";
+        if (catsImported > 0) parts.push(`${catsImported} categor${catsImported !== 1 ? "ies" : "y"}`);
+        const suffix = result.skipped > 0 ? ` (${result.skipped} skipped)` : "";
         toast.success(`Imported ${parts.join(" and ")}${suffix}.`);
       }
     };

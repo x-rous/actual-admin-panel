@@ -4,37 +4,14 @@ import { useRef, useState } from "react";
 import { Plus, Download, Upload, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { CSV_MAX_BYTES } from "@/lib/csv";
 import { useStagedStore } from "@/store/staged";
 import { useAccounts } from "../hooks/useAccounts";
 import { AccountsTable } from "./AccountsTable";
 import { AccountFormDrawer } from "./AccountFormDrawer";
+import { exportAccountsToCsv } from "../csv/accountsCsvExport";
+import { importAccountsFromCsv } from "../csv/accountsCsvImport";
 import type { AccountFormValues } from "../schemas/account.schema";
-
-function parseBoolean(value: string): boolean {
-  return value.trim().toLowerCase() === "true" || value.trim() === "1";
-}
-
-/** Parse a single CSV line respecting double-quoted fields. */
-function parseCsvLine(line: string): string[] {
-  const fields: string[] = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
-      else if (ch === '"') { inQuotes = false; }
-      else { current += ch; }
-    } else {
-      if (ch === '"') { inQuotes = true; }
-      else if (ch === ',') { fields.push(current); current = ""; }
-      else { current += ch; }
-    }
-  }
-  fields.push(current);
-  return fields;
-}
 
 export function AccountsView() {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -57,14 +34,8 @@ export function AccountsView() {
   }
 
   function handleExportCsv() {
-    const rows = Object.values(staged).filter((s) => !s.isDeleted);
-    const header = "id,name,offBudget,closed";
-    const body = rows
-      .map(({ entity: { id, name, offBudget, closed } }) =>
-        `${id},"${name.replace(/"/g, '""')}",${offBudget},${closed}`
-      )
-      .join("\n");
-    const blob = new Blob(["\uFEFF" + `${header}\n${body}`], { type: "text/csv;charset=utf-8" });
+    const csv = exportAccountsToCsv(staged);
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -75,53 +46,32 @@ export function AccountsView() {
 
   function handleImportCsv(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    // Reset so the same file can be re-imported if needed
     e.target.value = "";
     if (!file) return;
+
+    if (file.size > CSV_MAX_BYTES) {
+      toast.error("File is too large (max 5 MB).");
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result;
       if (typeof text !== "string") return;
 
-      const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
-      if (lines.length < 2) {
-        toast.error("CSV has no data rows.");
-        return;
-      }
+      const result = importAccountsFromCsv(text);
+      if ("error" in result) { toast.error(result.error); return; }
 
-      const headers = parseCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
-      const nameIdx    = headers.indexOf("name");
-      const budgetIdx  = headers.indexOf("offbudget");
-      const closedIdx  = headers.indexOf("closed");
-
-      if (nameIdx === -1) {
-        toast.error("CSV must have a \"name\" column.");
-        return;
-      }
-
-      let imported = 0;
-      let skipped = 0;
       pushUndo();
-
-      for (let i = 1; i < lines.length; i++) {
-        const fields = parseCsvLine(lines[i]);
-        const name = fields[nameIdx]?.trim() ?? "";
-        if (!name) { skipped++; continue; }
-
-        stageNew("accounts", {
-          id: crypto.randomUUID(),
-          name,
-          offBudget: budgetIdx !== -1 ? parseBoolean(fields[budgetIdx] ?? "") : false,
-          closed:    closedIdx !== -1 ? parseBoolean(fields[closedIdx]  ?? "") : false,
-        });
-        imported++;
+      for (const account of result.accounts) {
+        stageNew("accounts", { id: crypto.randomUUID(), ...account });
       }
 
+      const imported = result.accounts.length;
       if (imported === 0) {
         toast.warning("No valid rows found in CSV.");
-      } else if (skipped > 0) {
-        toast.success(`Imported ${imported} account${imported !== 1 ? "s" : ""} (${skipped} skipped — empty name).`);
+      } else if (result.skipped > 0) {
+        toast.success(`Imported ${imported} account${imported !== 1 ? "s" : ""} (${result.skipped} skipped — empty name).`);
       } else {
         toast.success(`Imported ${imported} account${imported !== 1 ? "s" : ""}.`);
       }

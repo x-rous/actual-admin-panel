@@ -9,16 +9,9 @@ import {
   updateCategoryGroup,
   deleteCategoryGroup,
 } from "@/lib/api/categoryGroups";
+import { extractMessage, computeSaveOperations } from "@/lib/saveUtils";
 import type { SaveResult, SaveSummary } from "@/types/diff";
-import type { StagedEntity } from "@/types/staged";
 import type { CategoryGroup } from "@/types/entities";
-
-function extractMessage(err: unknown, fallback: string): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "object" && err !== null && "message" in err)
-    return String((err as { message: unknown }).message);
-  return fallback;
-}
 
 export function useCategoryGroupsSave() {
   const [isSaving, setIsSaving] = useState(false);
@@ -32,49 +25,65 @@ export function useCategoryGroupsSave() {
 
     setIsSaving(true);
 
-    const entries = Object.values(staged) as StagedEntity<CategoryGroup>[];
-    const toCreate = entries.filter((s) => s.isNew && !s.isDeleted).map((s) => s.entity);
-    const toUpdate = entries.filter((s) => s.isUpdated && !s.isNew && !s.isDeleted).map((s) => s.entity);
-    const toDelete = entries.filter((s) => s.isDeleted && !s.isNew).map((s) => s.entity.id);
-
+    const { toCreate, toUpdate, toDelete } = computeSaveOperations<CategoryGroup>(staged);
     const succeeded: SaveResult[] = [];
     const failed: SaveResult[] = [];
+    const succeededCreateIds = new Set<string>();
 
-    for (const group of toCreate) {
-      try {
-        await createCategoryGroup(connection, {
-          name: group.name,
-          isIncome: group.isIncome,
-          hidden: group.hidden,
-        });
-        succeeded.push({ status: "success", id: group.id });
-      } catch (err) {
-        failed.push({ status: "error", id: group.id, message: extractMessage(err, "Create failed") });
-      }
-    }
-
-    for (const group of toUpdate) {
-      try {
-        await updateCategoryGroup(connection, group.id, {
-          name: group.name,
-          hidden: group.hidden,
-        });
-        succeeded.push({ status: "success", id: group.id });
-      } catch (err) {
-        failed.push({ status: "error", id: group.id, message: extractMessage(err, "Update failed") });
-      }
-    }
-
-    for (const id of toDelete) {
-      try {
-        await deleteCategoryGroup(connection, id);
+    // ── Creates (parallel) ────────────────────────────────────────────────────
+    const createResults = await Promise.allSettled(
+      toCreate.map((g) =>
+        createCategoryGroup(connection, { name: g.name, isIncome: g.isIncome, hidden: g.hidden })
+      )
+    );
+    for (let i = 0; i < toCreate.length; i++) {
+      const id = toCreate[i].id;
+      const r  = createResults[i];
+      if (r.status === "fulfilled") {
         succeeded.push({ status: "success", id });
-      } catch (err) {
-        failed.push({ status: "error", id, message: extractMessage(err, "Delete failed") });
+        succeededCreateIds.add(id);
+      } else {
+        failed.push({ status: "error", id, message: extractMessage(r.reason, "Create failed") });
+      }
+    }
+
+    // ── Updates (parallel) ────────────────────────────────────────────────────
+    const updateResults = await Promise.allSettled(
+      toUpdate.map((g) =>
+        updateCategoryGroup(connection, g.id, { name: g.name, hidden: g.hidden })
+      )
+    );
+    for (let i = 0; i < toUpdate.length; i++) {
+      const id = toUpdate[i].id;
+      const r  = updateResults[i];
+      if (r.status === "fulfilled") {
+        succeeded.push({ status: "success", id });
+      } else {
+        failed.push({ status: "error", id, message: extractMessage(r.reason, "Update failed") });
+      }
+    }
+
+    // ── Deletes (parallel) ────────────────────────────────────────────────────
+    const deleteResults = await Promise.allSettled(
+      toDelete.map((id) => deleteCategoryGroup(connection, id))
+    );
+    for (let i = 0; i < toDelete.length; i++) {
+      const id = toDelete[i];
+      const r  = deleteResults[i];
+      if (r.status === "fulfilled") {
+        succeeded.push({ status: "success", id });
+      } else {
+        failed.push({ status: "error", id, message: extractMessage(r.reason, "Delete failed") });
       }
     }
 
     setIsSaving(false);
+
+    // Remove temp-UUID staged entries for successful creates before refetch.
+    if (succeededCreateIds.size > 0) {
+      const store = useStagedStore.getState();
+      for (const id of succeededCreateIds) store.stageDelete("categoryGroups", id);
+    }
 
     if (failed.length > 0) {
       const errors: Record<string, string> = {};

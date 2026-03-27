@@ -1,0 +1,211 @@
+import { importRulesFromCsv } from "./rulesCsvImport";
+import type { LookupMaps } from "./rulesCsvImport";
+
+const emptyMaps: LookupMaps = { payees: {}, categories: {}, accounts: {} };
+
+function makeMaps(
+  payees: { id: string; name: string }[] = [],
+  categories: { id: string; name: string }[] = [],
+  accounts: { id: string; name: string }[] = []
+): LookupMaps {
+  return {
+    payees: Object.fromEntries(
+      payees.map((p) => [p.id, { entity: p, isDeleted: false }])
+    ),
+    categories: Object.fromEntries(
+      categories.map((c) => [c.id, { entity: c, isDeleted: false }])
+    ),
+    accounts: Object.fromEntries(
+      accounts.map((a) => [a.id, { entity: a, isDeleted: false }])
+    ),
+  };
+}
+
+const minimalCsv = (ruleId: string, extraRows: string[] = []) =>
+  [
+    "rule_id,stage,conditions_op,row_type,field,op,value",
+    `${ruleId},default,and,condition,notes,contains,groceries`,
+    `${ruleId},,,action,category,set,Food`,
+    ...extraRows,
+  ].join("\n");
+
+describe("importRulesFromCsv", () => {
+  it("returns an error for text shorter than CSV_MAX_BYTES check (no rows)", () => {
+    const result = importRulesFromCsv("rule_id,row_type,field", emptyMaps);
+    expect("error" in result).toBe(true);
+    if (!("error" in result)) return;
+    expect(result.error).toMatch(/no data rows/i);
+  });
+
+  it("returns an error when required columns are missing", () => {
+    const csv = "stage,conditions_op,row_type\ndefault,and,condition";
+    const result = importRulesFromCsv(csv, emptyMaps);
+    expect("error" in result).toBe(true);
+    if (!("error" in result)) return;
+    expect(result.error).toMatch(/rule_id/i);
+  });
+
+  it("imports a rule with one condition and one action", () => {
+    const csv = [
+      "rule_id,stage,conditions_op,row_type,field,op,value",
+      "r1,default,and,condition,notes,contains,grocery",
+      "r1,,,action,category,set,Food",
+    ].join("\n");
+
+    const result = importRulesFromCsv(csv, emptyMaps);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+
+    expect(result.rules).toHaveLength(1);
+    const rule = result.rules[0];
+    expect(rule.stage).toBe("default");
+    expect(rule.conditionsOp).toBe("and");
+    expect(rule.conditions).toHaveLength(1);
+    expect(rule.conditions[0]).toMatchObject({ field: "notes", op: "contains", value: "grocery" });
+    expect(rule.actions).toHaveLength(1);
+    expect(rule.actions[0]).toMatchObject({ field: "category", op: "set" });
+    expect(result.skipped).toBe(0);
+  });
+
+  it("groups multiple rows with the same rule_id into a single rule", () => {
+    const csv = [
+      "rule_id,stage,conditions_op,row_type,field,op,value",
+      "r1,default,and,condition,notes,contains,a",
+      "r1,,,condition,notes,contains,b",
+      "r1,,,action,category,set,Food",
+    ].join("\n");
+
+    const result = importRulesFromCsv(csv, emptyMaps);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.rules).toHaveLength(1);
+    expect(result.rules[0].conditions).toHaveLength(2);
+    expect(result.rules[0].actions).toHaveLength(1);
+  });
+
+  it("resolves payee names to IDs", () => {
+    const maps = makeMaps([{ id: "payee-1", name: "Amazon" }]);
+    const csv = [
+      "rule_id,stage,conditions_op,row_type,field,op,value",
+      "r1,default,and,condition,payee,is,Amazon",
+    ].join("\n");
+
+    const result = importRulesFromCsv(csv, maps);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.rules[0].conditions[0].value).toBe("payee-1");
+  });
+
+  it("auto-creates payees that do not exist in the maps", () => {
+    const csv = [
+      "rule_id,stage,conditions_op,row_type,field,op,value",
+      "r1,default,and,condition,payee,is,NewPayee",
+    ].join("\n");
+
+    const result = importRulesFromCsv(csv, emptyMaps);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.newPayees).toHaveLength(1);
+    expect(result.newPayees[0].name).toBe("NewPayee");
+    // The condition value should be the new payee's ID
+    const newId = result.newPayees[0].id;
+    expect(result.rules[0].conditions[0].value).toBe(newId);
+  });
+
+  it("deduplicates auto-created payees across multiple conditions referencing the same name", () => {
+    const csv = [
+      "rule_id,stage,conditions_op,row_type,field,op,value",
+      "r1,default,and,condition,payee,is,NewPayee",
+      "r2,default,and,condition,payee,is,NewPayee",
+    ].join("\n");
+
+    const result = importRulesFromCsv(csv, emptyMaps);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.newPayees).toHaveLength(1);
+    // Both rules should reference the same auto-created payee ID
+    expect(result.rules[0].conditions[0].value).toBe(result.rules[1].conditions[0].value);
+  });
+
+  it("defaults stage to 'default' for unknown/missing stage values", () => {
+    const csv = [
+      "rule_id,stage,conditions_op,row_type,field,op,value",
+      "r1,nonsense,and,action,category,set,Food",
+    ].join("\n");
+
+    const result = importRulesFromCsv(csv, emptyMaps);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.rules[0].stage).toBe("default");
+  });
+
+  it("accepts pre and post as valid stages", () => {
+    const csv = [
+      "rule_id,stage,conditions_op,row_type,field,op,value",
+      "r1,pre,and,action,category,set,Food",
+      "r2,post,and,action,category,set,Food",
+    ].join("\n");
+
+    const result = importRulesFromCsv(csv, emptyMaps);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.rules[0].stage).toBe("pre");
+    expect(result.rules[1].stage).toBe("post");
+  });
+
+  it("skips rules with no conditions and no actions", () => {
+    // A rule group with only rows that have no field will produce nothing
+    const csv = [
+      "rule_id,stage,conditions_op,row_type,field,op,value",
+      "r1,default,and,,,,",  // no row_type and no field
+    ].join("\n");
+
+    const result = importRulesFromCsv(csv, emptyMaps);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.rules).toHaveLength(0);
+    expect(result.skipped).toBeGreaterThan(0);
+  });
+
+  it("handles oneOf pipe-separated values", () => {
+    const maps = makeMaps([
+      { id: "p1", name: "Amazon" },
+      { id: "p2", name: "Netflix" },
+    ]);
+    const csv = [
+      "rule_id,stage,conditions_op,row_type,field,op,value",
+      "r1,default,and,condition,payee,oneOf,Amazon|Netflix",
+    ].join("\n");
+
+    const result = importRulesFromCsv(csv, maps);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(Array.isArray(result.rules[0].conditions[0].value)).toBe(true);
+    expect(result.rules[0].conditions[0].value).toEqual(["p1", "p2"]);
+  });
+
+  it("assigns fresh IDs to imported rules (not the original rule_id)", () => {
+    const csv = [
+      "rule_id,stage,conditions_op,row_type,field,op,value",
+      "original-id,default,and,action,category,set,Food",
+    ].join("\n");
+
+    const result = importRulesFromCsv(csv, emptyMaps);
+
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.rules[0].id).not.toBe("original-id");
+    expect(result.rules[0].id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    );
+  });
+});

@@ -5,30 +5,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useStagedStore } from "@/store/staged";
 import { useConnectionStore, selectActiveInstance } from "@/store/connection";
 import { createAccount, updateAccount, deleteAccount } from "@/lib/api/accounts";
+import { extractMessage, computeSaveOperations } from "@/lib/saveUtils";
 import type { SaveResult, SaveSummary } from "@/types/diff";
-import type { StagedEntity } from "@/types/staged";
 import type { Account } from "@/types/entities";
-
-function extractMessage(err: unknown, fallback: string): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "object" && err !== null && "message" in err)
-    return String((err as { message: unknown }).message);
-  return fallback;
-}
-
-function computeSaveOperations(staged: Record<string, StagedEntity<Account>>) {
-  const toCreate: Account[] = [];
-  const toUpdate: Account[] = [];
-  const toDelete: string[] = [];
-
-  for (const s of Object.values(staged)) {
-    if (s.isNew && !s.isDeleted) toCreate.push(s.entity);
-    else if (s.isDeleted && !s.isNew) toDelete.push(s.entity.id);
-    else if (s.isUpdated && !s.isDeleted) toUpdate.push(s.entity);
-  }
-
-  return { toCreate, toUpdate, toDelete };
-}
 
 export function useAccountsSave() {
   const [isSaving, setIsSaving] = useState(false);
@@ -47,61 +26,68 @@ export function useAccountsSave() {
 
     setIsSaving(true);
 
-    const { toCreate, toUpdate, toDelete } = computeSaveOperations(staged);
+    const { toCreate, toUpdate, toDelete } = computeSaveOperations<Account>(staged);
     const succeeded: SaveResult[] = [];
     const failed: SaveResult[] = [];
+    const succeededCreateIds = new Set<string>();
 
-    for (const account of toCreate) {
-      try {
-        await createAccount(connection, {
-          name: account.name,
-          offBudget: account.offBudget,
-          closed: account.closed,
-        });
-        succeeded.push({ status: "success", id: account.id });
-      } catch (err) {
-        failed.push({
-          status: "error",
-          id: account.id,
-          message: extractMessage(err, "Create failed"),
-        });
-      }
-    }
-
-    for (const account of toUpdate) {
-      try {
-        await updateAccount(connection, account.id, {
-          name: account.name,
-          offBudget: account.offBudget,
-          closed: account.closed,
-        });
-        succeeded.push({ status: "success", id: account.id });
-      } catch (err) {
-        failed.push({
-          status: "error",
-          id: account.id,
-          message: extractMessage(err, "Update failed"),
-        });
-      }
-    }
-
-    for (const id of toDelete) {
-      try {
-        await deleteAccount(connection, id);
+    // ── Creates (parallel) ────────────────────────────────────────────────────
+    const createResults = await Promise.allSettled(
+      toCreate.map((a) =>
+        createAccount(connection, { name: a.name, offBudget: a.offBudget, closed: a.closed })
+      )
+    );
+    for (let i = 0; i < toCreate.length; i++) {
+      const id = toCreate[i].id;
+      const r  = createResults[i];
+      if (r.status === "fulfilled") {
         succeeded.push({ status: "success", id });
-      } catch (err) {
-        failed.push({
-          status: "error",
-          id,
-          message: extractMessage(err, "Delete failed"),
-        });
+        succeededCreateIds.add(id);
+      } else {
+        failed.push({ status: "error", id, message: extractMessage(r.reason, "Create failed") });
+      }
+    }
+
+    // ── Updates (parallel) ────────────────────────────────────────────────────
+    const updateResults = await Promise.allSettled(
+      toUpdate.map((a) =>
+        updateAccount(connection, a.id, { name: a.name, offBudget: a.offBudget, closed: a.closed })
+      )
+    );
+    for (let i = 0; i < toUpdate.length; i++) {
+      const id = toUpdate[i].id;
+      const r  = updateResults[i];
+      if (r.status === "fulfilled") {
+        succeeded.push({ status: "success", id });
+      } else {
+        failed.push({ status: "error", id, message: extractMessage(r.reason, "Update failed") });
+      }
+    }
+
+    // ── Deletes (parallel) ────────────────────────────────────────────────────
+    const deleteResults = await Promise.allSettled(
+      toDelete.map((id) => deleteAccount(connection, id))
+    );
+    for (let i = 0; i < toDelete.length; i++) {
+      const id = toDelete[i];
+      const r  = deleteResults[i];
+      if (r.status === "fulfilled") {
+        succeeded.push({ status: "success", id });
+      } else {
+        failed.push({ status: "error", id, message: extractMessage(r.reason, "Delete failed") });
       }
     }
 
     setIsSaving(false);
 
-    // Stamp save errors onto failed rows BEFORE the reload so loadAccounts
-    // can preserve them (failed creates stay staged, failed updates keep edits).
+    // Remove temp-UUID staged entries for successful creates before refetch.
+    // Without this, loadAccounts preserves every isNew entry not in the server
+    // response, causing the temp entry to linger alongside the newly-created row.
+    if (succeededCreateIds.size > 0) {
+      const store = useStagedStore.getState();
+      for (const id of succeededCreateIds) store.stageDelete("accounts", id);
+    }
+
     if (failed.length > 0) {
       const errors: Record<string, string> = {};
       for (const f of failed) {
@@ -110,7 +96,6 @@ export function useAccountsSave() {
       useStagedStore.getState().setSaveErrors("accounts", errors);
     }
 
-    // Reload from server. Enhanced loadAccounts preserves failed rows.
     await queryClient.invalidateQueries({ queryKey: ["accounts", connection.id] });
 
     return { succeeded, failed };

@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useStagedStore } from "@/store/staged";
-import { ConditionRow, ActionRow, selectCls } from "./RuleDrawer";
+import { ConditionRow, ActionRow, selectCls } from "./ConditionRow";
 import {
   CONDITION_FIELDS,
   ACTION_FIELDS,

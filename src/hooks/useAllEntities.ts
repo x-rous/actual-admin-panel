@@ -13,7 +13,7 @@ import { useRules } from "@/features/rules/hooks/useRules";
  * which page the user is on. TanStack Query deduplicates the requests — page-
  * level hooks that call the same fetch hook will share the cached result.
  */
-export function useAllEntities() {
+export function usePreloadEntities() {
   useAccounts();
   usePayees();
   useCategoryGroups();
