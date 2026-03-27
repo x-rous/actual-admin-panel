@@ -294,8 +294,8 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId }: Props) {
         </div>
       )}
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap shrink-0 items-center gap-2 border-b border-border/40 bg-muted/10 px-2 py-1.5">
+      {/* Filter bar — hidden while rows are selected */}
+      {activeSelectedIds.length === 0 && <div className="flex flex-wrap shrink-0 items-center gap-2 border-b border-border/40 bg-muted/10 px-2 py-1.5">
         <div className="relative">
           <Search className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
@@ -363,7 +363,7 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId }: Props) {
         <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
           {rows.length} of {totalVisible}
         </span>
-      </div>
+      </div>}
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
