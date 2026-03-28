@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useStagedStore } from "@/store/staged";
+import { generateId } from "@/lib/uuid";
 import { FilterBar } from "./FilterBar";
 import { BulkAddBar } from "./BulkAddBar";
 import type { StatusFilter, BudgetFilter } from "./FilterBar";
@@ -196,10 +197,10 @@ export function AccountsTable() {
   // ── Bulk add ─────────────────────────────────────────────────────────────────
   function addRows(count: number, focusFirst = false) {
     pushUndo();
-    const firstId = crypto.randomUUID();
+    const firstId = generateId();
     stageNew("accounts", { id: firstId, name: "", offBudget: false, closed: false });
     for (let i = 1; i < count; i++) {
-      stageNew("accounts", { id: crypto.randomUUID(), name: "", offBudget: false, closed: false });
+      stageNew("accounts", { id: generateId(), name: "", offBudget: false, closed: false });
     }
     if (focusFirst) setTimeout(() => startEditing(firstId, "name"), 0);
   }
@@ -288,7 +289,7 @@ export function AccountsTable() {
         if (!name) continue;
         const v = cols[1]?.trim().toLowerCase() ?? "";
         stageNew("accounts", {
-          id: crypto.randomUUID(),
+          id: generateId(),
           name,
           offBudget: v === "true" || v === "1" || v === "yes" || v === "off budget" || v === "off",
           closed: false,

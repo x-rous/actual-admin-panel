@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { CSV_MAX_BYTES } from "@/lib/csv";
 import { useStagedStore } from "@/store/staged";
+import { generateId } from "@/lib/uuid";
 import { usePayees } from "../hooks/usePayees";
 import { PayeesTable } from "./PayeesTable";
 import { exportPayeesToCsv } from "../csv/payeesCsvExport";
@@ -24,7 +25,7 @@ export function PayeesView() {
   function handleAddPayee() {
     pushUndo();
     stageNew("payees", {
-      id: crypto.randomUUID(),
+      id: generateId(),
       name: "",
     });
   }
@@ -60,7 +61,7 @@ export function PayeesView() {
 
       pushUndo();
       for (const payee of result.payees) {
-        stageNew("payees", { id: crypto.randomUUID(), ...payee });
+        stageNew("payees", { id: generateId(), ...payee });
       }
 
       const imported = result.payees.length;

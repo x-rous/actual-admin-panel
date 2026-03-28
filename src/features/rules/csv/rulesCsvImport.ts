@@ -1,4 +1,5 @@
 import { parseCsvLine, CSV_MAX_BYTES } from "@/lib/csv";
+import { generateId } from "@/lib/uuid";
 import { CONDITION_FIELDS, ACTION_FIELDS } from "../utils/ruleFields";
 import type { Rule, Payee, RuleStage, ConditionsOp, ConditionOrAction } from "@/types/entities";
 
@@ -53,7 +54,7 @@ function resolveScalarValue(
     const existing = findIdByName(maps.payees, rawValue);
     if (existing) return { value: existing, type: "id" };
     // Auto-create: collected here, staged by the caller after pushUndo
-    const id = crypto.randomUUID();
+    const id = generateId();
     newPayees.push({ id, name: rawValue.trim() });
     createdPayees.set(lower, id);
     return { value: id, type: "id" };
@@ -194,7 +195,7 @@ export function importRulesFromCsv(
     if (conditions.length === 0 && actions.length === 0) { skipped++; continue; }
 
     rules.push({
-      id: crypto.randomUUID(),
+      id: generateId(),
       stage: validStages.includes(group.stage as RuleStage)
         ? (group.stage as RuleStage)
         : "default",

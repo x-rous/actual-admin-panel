@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useStagedStore } from "@/store/staged";
+import { generateId } from "@/lib/uuid";
 import { ConditionRow, ActionRow, selectCls } from "./ConditionRow";
 import {
   CONDITION_FIELDS,
@@ -104,7 +105,7 @@ export function MergeRulesDialog({ open, onOpenChange, ruleIds }: Props) {
   function handleConfirm() {
     pushUndo();
 
-    const newId = crypto.randomUUID();
+    const newId = generateId();
     stageNew("rules", { id: newId, stage, conditionsOp, conditions, actions });
 
     if (deleteOriginals) {

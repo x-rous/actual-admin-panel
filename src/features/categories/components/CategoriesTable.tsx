@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useStagedStore } from "@/store/staged";
+import { generateId } from "@/lib/uuid";
 import type { StagedEntity } from "@/types/staged";
 import type { CategoryGroup, Category } from "@/types/entities";
 import { FilterBar } from "./FilterBar";
@@ -239,14 +240,14 @@ export function CategoriesTable({
   // ── Adding rows ──────────────────────────────────────────────────────────────
   function addGroup(isIncome: boolean) {
     pushUndo();
-    const id = crypto.randomUUID();
+    const id = generateId();
     stageNew("categoryGroups", { id, name: "", isIncome, hidden: false, categoryIds: [] });
     setTimeout(() => startEditing("group", id), 0);
   }
 
   function addCategory(groupId: string) {
     pushUndo();
-    const id = crypto.randomUUID();
+    const id = generateId();
     const group = stagedGroups[groupId];
     stageNew("categories", {
       id,

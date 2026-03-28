@@ -11,6 +11,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { useStagedStore } from "@/store/staged";
+import { generateId } from "@/lib/uuid";
 import { selectCls } from "./ConditionRow";
 import { ConditionRow, ActionRow } from "./ConditionRow";
 import { STAGE_OPTIONS, CONDITIONS_OP_OPTIONS } from "../utils/ruleFields";
@@ -77,7 +78,7 @@ export function RuleDrawer({ open, onOpenChange, ruleId }: Props) {
       stageUpdate("rules", ruleId, { stage, conditionsOp, conditions, actions });
     } else {
       stageNew("rules", {
-        id: crypto.randomUUID(),
+        id: generateId(),
         stage,
         conditionsOp,
         conditions,

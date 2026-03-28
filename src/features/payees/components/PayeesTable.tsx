@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useStagedStore } from "@/store/staged";
+import { generateId } from "@/lib/uuid";
 import type { StagedEntity } from "@/types/staged";
 import type { Payee } from "@/types/entities";
 import { FilterBar } from "./FilterBar";
@@ -244,10 +245,10 @@ export function PayeesTable() {
   // ── Bulk add ─────────────────────────────────────────────────────────────────
   function addRows(count: number, focusFirst = false) {
     pushUndo();
-    const firstId = crypto.randomUUID();
+    const firstId = generateId();
     stageNew("payees", { id: firstId, name: "" });
     for (let i = 1; i < count; i++) {
-      stageNew("payees", { id: crypto.randomUUID(), name: "" });
+      stageNew("payees", { id: generateId(), name: "" });
     }
     if (focusFirst) setTimeout(() => startEditing(firstId, "name"), 0);
   }
@@ -335,7 +336,7 @@ export function PayeesTable() {
         if (name) stageUpdate("payees", target.entity.id, { name });
       } else if (!search) {
         if (!name) continue;
-        stageNew("payees", { id: crypto.randomUUID(), name });
+        stageNew("payees", { id: generateId(), name });
       }
     }
   }

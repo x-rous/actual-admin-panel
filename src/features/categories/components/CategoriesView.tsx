@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { CSV_MAX_BYTES } from "@/lib/csv";
 import { useStagedStore } from "@/store/staged";
+import { generateId } from "@/lib/uuid";
 import { useCategoryGroups } from "../hooks/useCategoryGroups";
 import { CategoriesTable } from "./CategoriesTable";
 import { exportCategoriesToCsv } from "../csv/categoriesCsvExport";
@@ -70,7 +71,7 @@ export function CategoriesView() {
         stageNew("categoryGroups", { ...group, categoryIds: [] });
       }
       for (const cat of result.categories) {
-        stageNew("categories", { id: crypto.randomUUID(), ...cat });
+        stageNew("categories", { id: generateId(), ...cat });
       }
 
       const groupsImported = result.groups.length;

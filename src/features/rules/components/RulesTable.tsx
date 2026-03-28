@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useStagedStore } from "@/store/staged";
+import { generateId } from "@/lib/uuid";
 import { rulePreview } from "../utils/rulePreview";
 import { CONDITION_FIELDS, ACTION_FIELDS, STAGE_LABELS } from "../utils/ruleFields";
 import { FilterBar } from "./FilterBar";
@@ -222,7 +223,7 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId }: Props) {
 
   function handleDuplicate(rule: Rule) {
     pushUndo();
-    stageNew("rules", { ...structuredClone(rule), id: crypto.randomUUID() });
+    stageNew("rules", { ...structuredClone(rule), id: generateId() });
   }
 
   function handleRevert(id: string) {
