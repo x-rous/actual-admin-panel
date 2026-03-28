@@ -1,4 +1,5 @@
 import { parseCsvLine, parseBoolean } from "@/lib/csv";
+import { generateId } from "@/lib/uuid";
 import type { CategoryGroup, Category } from "@/types/entities";
 
 export type CategoriesImportResult = {
@@ -62,7 +63,7 @@ export function importCategoriesFromCsv(
       continue;
     }
 
-    const id = crypto.randomUUID();
+    const id = generateId();
     const isIncome = isIncomeIdx !== -1 ? parseBoolean(fields[isIncomeIdx] ?? "") : false;
     const hidden = hiddenIdx !== -1 ? parseBoolean(fields[hiddenIdx] ?? "") : false;
 

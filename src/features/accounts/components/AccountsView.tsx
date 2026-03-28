@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { CSV_MAX_BYTES } from "@/lib/csv";
 import { useStagedStore } from "@/store/staged";
+import { generateId } from "@/lib/uuid";
 import { useAccounts } from "../hooks/useAccounts";
 import { AccountsTable } from "./AccountsTable";
 import { AccountFormDrawer } from "./AccountFormDrawer";
@@ -27,7 +28,7 @@ export function AccountsView() {
   function handleDrawerSubmit(values: AccountFormValues) {
     pushUndo();
     stageNew("accounts", {
-      id: crypto.randomUUID(),
+      id: generateId(),
       name: values.name,
       offBudget: values.offBudget,
       closed: false,
@@ -65,7 +66,7 @@ export function AccountsView() {
 
       pushUndo();
       for (const account of result.accounts) {
-        stageNew("accounts", { id: crypto.randomUUID(), ...account });
+        stageNew("accounts", { id: generateId(), ...account });
       }
 
       const imported = result.accounts.length;

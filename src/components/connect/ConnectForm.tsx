@@ -15,6 +15,7 @@ import {
   type ConnectionInstance,
 } from "@/store/connection";
 import { useStagedStore } from "@/store/staged";
+import { generateId } from "@/lib/uuid";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -269,7 +270,7 @@ export function ConnectForm() {
     if (!selected) return;
 
     const instance: ConnectionInstance = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       label: selected.name || deriveLabel(validatedUrl),
       baseUrl: validatedUrl,
       apiKey: validatedKey,
