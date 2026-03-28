@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Actual Admin Panel",
+  title: "Actual Bench",
   description: "Bulk admin interface for Actual Budget master data",
 };
 
@@ -28,7 +28,7 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans">
+      <body className="h-full overflow-hidden font-sans">
         <Providers>{children}</Providers>
       </body>
     </html>

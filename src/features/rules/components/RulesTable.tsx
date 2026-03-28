@@ -2,20 +2,22 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2, RotateCcw, Copy, AlertTriangle, Search, X, Merge } from "lucide-react";
+import { useHighlight } from "@/hooks/useHighlight";
+import { useTableSelection } from "@/hooks/useTableSelection";
+import { Pencil, Trash2, RotateCcw, Copy, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useStagedStore } from "@/store/staged";
 import { rulePreview } from "../utils/rulePreview";
 import { CONDITION_FIELDS, ACTION_FIELDS, STAGE_LABELS } from "../utils/ruleFields";
+import { FilterBar } from "./FilterBar";
+import type { StageFilter } from "./FilterBar";
 import { valueToString } from "../utils/rulePreview";
 import type { StagedEntity, StagedMap } from "@/types/staged";
 import type { Rule, ConditionOrAction, Payee, Category, Account } from "@/types/entities";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type StageFilter = "all" | "pre" | "default" | "post";
 
 type EntityMaps = {
   payees: StagedMap<Payee>;
@@ -161,18 +163,32 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId }: Props) {
   const clearSaveError = useStagedStore((s) => s.clearSaveError);
   const pushUndo = useStagedStore((s) => s.pushUndo);
 
-  const router = useRouter();
+  const router        = useRouter();
+  const highlightedId = useHighlight();
 
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
   const [search, setSearch] = useState("");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { selectedIds, toggleSelect, toggleSelectAll: _toggleSelectAll, clearSelection } = useTableSelection();
 
   const entityMaps = useMemo<EntityMaps>(
     () => ({ payees, categories, accounts }),
     [payees, categories, accounts]
   );
 
+  // Pre-compute previews once when rules or entity maps change so the search
+  // filter doesn't recompute them on every keystroke.
+  const rulePreviews = useMemo<Map<string, string>>(() => {
+    const map = new Map<string, string>();
+    for (const s of Object.values(stagedRules)) {
+      if (!s.isDeleted) {
+        map.set(s.entity.id, rulePreview(s.entity, entityMaps).toLowerCase());
+      }
+    }
+    return map;
+  }, [stagedRules, entityMaps]);
+
   const rows = useMemo<StagedEntity<Rule>[]>(() => {
+    const q = search.trim().toLowerCase();
     return Object.values(stagedRules).filter((s) => {
       if (s.isDeleted) return false;
       if (stageFilter !== "all" && normalizeStage(s.entity.stage) !== stageFilter) return false;
@@ -194,14 +210,10 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId }: Props) {
         });
         if (!hasCategory) return false;
       }
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        const preview = rulePreview(s.entity, entityMaps).toLowerCase();
-        if (!preview.includes(q)) return false;
-      }
+      if (q && !(rulePreviews.get(s.entity.id) ?? "").includes(q)) return false;
       return true;
     });
-  }, [stagedRules, stageFilter, payeeId, categoryId, search, entityMaps]);
+  }, [stagedRules, stageFilter, payeeId, categoryId, search, rulePreviews]);
 
   function handleDelete(id: string) {
     pushUndo();
@@ -232,148 +244,52 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId }: Props) {
   );
 
   function toggleSelectAll() {
-    if (allSelected) {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        for (const s of rows) next.delete(s.entity.id);
-        return next;
-      });
-    } else {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        for (const s of rows) next.add(s.entity.id);
-        return next;
-      });
-    }
-  }
-
-  function toggleSelect(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    _toggleSelectAll(selectableIds, allSelected);
   }
 
   function handleMerge() {
     onMerge(activeSelectedIds);
-    setSelectedIds(new Set());
+    clearSelection();
   }
 
   function handleDeleteSelected() {
     pushUndo();
     for (const id of activeSelectedIds) stageDelete("rules", id);
-    setSelectedIds(new Set());
+    clearSelection();
   }
 
   const totalVisible = Object.values(stagedRules).filter((s) => !s.isDeleted).length;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Bulk action bar — visible when ≥1 row is selected */}
-      {activeSelectedIds.length >= 1 && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-border/40 bg-primary/5 px-2 py-1.5">
-          <span className="text-xs font-medium text-primary">
-            {activeSelectedIds.length} selected
-          </span>
-          <Button size="xs" variant="destructive" onClick={handleDeleteSelected}>            
-            Delete
-          </Button>
-          {activeSelectedIds.length >= 2 && (
-            <Button size="xs" className="h-6 text-xs" onClick={handleMerge}>
-              <Merge className="h-3.5 w-3.5 mr-1.5" />
-              Merge Selected
-            </Button>
-          )}
-          <button 
-            onClick={() => setSelectedIds(new Set())}
-            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-          > Clear selection
-          </button>
-        </div>
-      )}
-
-      {/* Filter bar — hidden while rows are selected */}
-      {activeSelectedIds.length === 0 && <div className="flex flex-wrap shrink-0 items-center gap-2 border-b border-border/40 bg-muted/10 px-2 py-1.5">
-        <div className="relative">
-          <Search className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search rules…"
-            className="h-6 w-44 rounded border border-border bg-background pl-6 pr-6 text-xs outline-none focus:ring-1 focus:ring-ring"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex gap-px rounded border border-border bg-muted/40 p-px">
-          {(["all", "pre", "default", "post"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setStageFilter(f)}
-              className={cn(
-                "rounded px-2 py-0.5 text-xs transition-colors",
-                stageFilter === f
-                  ? "bg-background font-medium shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {f === "all" ? "All" : STAGE_LABELS[f]}
-            </button>
-          ))}
-        </div>
-
-        {payeeId && (
-          <div className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs text-primary">
-            <span>
-              Payee: <span className="font-medium">{payees[payeeId]?.entity.name ?? payeeId}</span>
-            </span>
-            <button
-              onClick={() => router.push("/rules")}
-              className="text-primary/60 hover:text-primary"
-              title="Clear payee filter"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-        )}
-        {categoryId && (
-          <div className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs text-primary">
-            <span>
-              Category: <span className="font-medium">{categories[categoryId]?.entity.name ?? categoryId}</span>
-            </span>
-            <button
-              onClick={() => router.push("/rules")}
-              className="text-primary/60 hover:text-primary"
-              title="Clear category filter"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-        )}
-
-        <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
-          {rows.length} of {totalVisible}
-        </span>
-      </div>}
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        stageFilter={stageFilter}
+        onStageFilterChange={setStageFilter}
+        payeeId={payeeId}
+        payeeName={payeeId ? payees[payeeId]?.entity.name : undefined}
+        categoryId={categoryId}
+        categoryName={categoryId ? categories[categoryId]?.entity.name : undefined}
+        onClearPayee={() => router.push("/rules")}
+        onClearCategory={() => router.push("/rules")}
+        rowCount={rows.length}
+        totalVisible={totalVisible}
+        selectedCount={activeSelectedIds.length}
+        onDeleteSelected={handleDeleteSelected}
+        onMerge={handleMerge}
+        onDeselect={clearSelection}
+      />
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         {rows.length === 0 ? (
           <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
             No rules found.
           </div>
         ) : (
           <table className="w-full text-xs">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-background">
               <tr className="border-b border-border bg-muted/30 text-muted-foreground">
                 <th className="w-8 px-3 py-2">
                   <input
@@ -401,11 +317,14 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId }: Props) {
                 return (
                   <tr
                     key={rule.id}
+                    data-row-id={rule.id}
                     className={cn(
-                      "group border-b border-border hover:bg-muted/20 transition-colors align-top",
-                      isDirty && "bg-amber-50/40 dark:bg-amber-950/10",
-                      hasError && "bg-destructive/5",
-                      selectedIds.has(rule.id) && "bg-primary/5"
+                      "group border-b border-border border-l-2 border-l-transparent hover:bg-muted/20 transition-colors align-top",
+                      highlightedId === rule.id && "bg-primary/20 ring-2 ring-inset ring-primary/40",
+                      highlightedId !== rule.id && selectedIds.has(rule.id) && "bg-primary/10",
+                      highlightedId !== rule.id && !selectedIds.has(rule.id) && hasError && "bg-destructive/5 border-l-destructive",
+                      highlightedId !== rule.id && !selectedIds.has(rule.id) && !hasError && s.isNew && "bg-green-50/40 dark:bg-green-950/10 border-l-green-500",
+                      highlightedId !== rule.id && !selectedIds.has(rule.id) && !hasError && !s.isNew && s.isUpdated && "bg-amber-50/40 dark:bg-amber-950/10 border-l-amber-400",
                     )}
                   >
                     {/* Checkbox */}
@@ -421,8 +340,11 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId }: Props) {
                     {/* Stage */}
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1">
-                        {isDirty && (
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                        {s.isNew && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
+                        )}
+                        {!s.isNew && s.isUpdated && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
                         )}
                         {hasError && (
                           <AlertTriangle

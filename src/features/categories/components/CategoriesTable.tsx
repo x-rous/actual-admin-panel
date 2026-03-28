@@ -2,9 +2,14 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useHighlight } from "@/hooks/useHighlight";
+import { useInlineEdit } from "@/hooks/useInlineEdit";
+import { useTableSelection } from "@/hooks/useTableSelection";
+import { NameInput } from "@/components/ui/editable-cell";
+import type { DoneAction } from "@/components/ui/editable-cell";
 import {
   RotateCcw, Trash2, RefreshCw, Eye, EyeOff,
-  ArrowUpDown, ArrowUp, ArrowDown, Search, X, AlertTriangle,
+  ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle,
   ChevronDown, ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -17,177 +22,16 @@ import { cn } from "@/lib/utils";
 import { useStagedStore } from "@/store/staged";
 import type { StagedEntity } from "@/types/staged";
 import type { CategoryGroup, Category } from "@/types/entities";
+import { FilterBar } from "./FilterBar";
+import type { VisibilityFilter, TypeFilter, SortDir } from "./FilterBar";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 type GroupRow = StagedEntity<CategoryGroup>;
 type CategoryRow = StagedEntity<Category>;
-type DoneAction = "down" | "up" | "tab" | "shiftTab" | "cancel" | "blur";
-type SortDir = "asc" | "desc";
-type VisibilityFilter = "all" | "visible" | "hidden";
-type TypeFilter = "all" | "income" | "expense";
 type ConfirmState = { title: string; message: string; onConfirm: () => void };
 type SelectionKind = "group" | "category";
 type CellId = { kind: SelectionKind; id: string };
-
-// ─── NameInput ─────────────────────────────────────────────────────────────────
-
-function NameInput({
-  initialValue, startChar, onDone,
-}: {
-  initialValue: string;
-  startChar?: string;
-  onDone: (value: string, action: DoneAction) => void;
-}) {
-  const [value, setValue] = useState(startChar ?? initialValue);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const committed = useRef(false);
-
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.focus();
-    if (!startChar) el.select();
-  }, [startChar]);
-
-  function done(action: DoneAction) {
-    if (committed.current) return;
-    if (action !== "cancel" && value.trim() === "") {
-      committed.current = true;
-      onDone(initialValue, "cancel");
-      return;
-    }
-    committed.current = true;
-    onDone(value, action);
-  }
-
-  return (
-    <input
-      ref={inputRef}
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => done("blur")}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-        if (e.key === "Enter") { e.preventDefault(); done("down"); }
-        else if (e.key === "Escape") { e.preventDefault(); done("cancel"); }
-        else if (e.key === "Tab") { e.preventDefault(); done(e.shiftKey ? "shiftTab" : "tab"); }
-        else if (e.key === "ArrowDown") { e.preventDefault(); done("down"); }
-        else if (e.key === "ArrowUp") { e.preventDefault(); done("up"); }
-      }}
-      className="w-full min-w-0 border-0 bg-transparent p-0 text-sm leading-6 outline-none"
-    />
-  );
-}
-
-// ─── PillGroup ─────────────────────────────────────────────────────────────────
-
-function PillGroup<T extends string>({
-  options, value, onChange,
-}: {
-  options: { value: T; label: string }[];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="flex gap-px rounded border border-border bg-muted/40 p-px">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          className={cn(
-            "rounded px-2 py-0.5 text-xs transition-colors",
-            value === opt.value
-              ? "bg-background font-medium shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-const VISIBILITY_OPTIONS: { value: VisibilityFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "visible", label: "Visible" },
-  { value: "hidden", label: "Hidden" },
-];
-
-const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "income", label: "Income" },
-  { value: "expense", label: "Expense" },
-];
-
-// ─── FilterBar ─────────────────────────────────────────────────────────────────
-
-function FilterBar({
-  search, onSearchChange,
-  visibilityFilter, onVisibilityChange,
-  typeFilter, onTypeChange,
-  filteredCount, totalCount,
-  selectedCount,
-  onBulkDelete, onDeselect,
-}: {
-  search: string; onSearchChange: (v: string) => void;
-  visibilityFilter: VisibilityFilter; onVisibilityChange: (v: VisibilityFilter) => void;
-  typeFilter: TypeFilter; onTypeChange: (v: TypeFilter) => void;
-  filteredCount: number; totalCount: number;
-  selectedCount: number;
-  onBulkDelete: () => void;
-  onDeselect: () => void;
-}) {
-  const hasFilters = search || visibilityFilter !== "all" || typeFilter !== "all";
-
-  if (selectedCount > 0) {
-    return (
-      <div className="flex flex-wrap items-center gap-2 border-b border-border/40 bg-primary/5 px-2 py-1.5">
-        <span className="text-xs font-medium text-primary">{selectedCount} selected</span>
-        <Button size="xs" variant="destructive" onClick={onBulkDelete}>Delete</Button>
-        <button onClick={onDeselect} className="ml-auto text-xs text-muted-foreground hover:text-foreground">
-          Clear selection
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-border/40 bg-muted/10 px-2 py-1.5">
-      <div className="relative flex items-center">
-        <Search className="absolute left-1.5 h-3.5 w-3.5 text-muted-foreground" />
-        <input
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search…"
-          className="h-6 w-44 rounded border border-border bg-background pl-6 pr-6 text-xs outline-none focus:ring-1 focus:ring-ring"
-        />
-        {search && (
-          <button onClick={() => onSearchChange("")} className="absolute right-1.5 text-muted-foreground hover:text-foreground">
-            <X className="h-3 w-3" />
-          </button>
-        )}
-      </div>
-
-      <PillGroup options={VISIBILITY_OPTIONS} value={visibilityFilter} onChange={onVisibilityChange} />
-      <PillGroup options={TYPE_OPTIONS} value={typeFilter} onChange={onTypeChange} />
-
-      {hasFilters && (
-        <button
-          onClick={() => { onSearchChange(""); onVisibilityChange("all"); onTypeChange("all"); }}
-          className="text-xs text-muted-foreground underline hover:text-foreground"
-        >
-          Clear
-        </button>
-      )}
-
-      <span className="ml-auto text-xs text-muted-foreground">
-        {filteredCount === totalCount ? `${totalCount} rows` : `${filteredCount} of ${totalCount}`}
-      </span>
-    </div>
-  );
-}
 
 // ─── SortIndicator ─────────────────────────────────────────────────────────────
 
@@ -214,16 +58,18 @@ export function CategoriesTable({
   const [sortNameDir, setSortNameDir] = useState<SortDir | null>(null);
 
   // ── Editing state ────────────────────────────────────────────────────────────
-  const [selectedCell, setSelectedCell] = useState<CellId | null>(null);
-  const [editingCell, setEditingCell] = useState<CellId | null>(null);
-  const [editStartChar, setEditStartChar] = useState<string | undefined>(undefined);
+  const {
+    selectedCell, editingCell, editStartChar,
+    selectCell, startEdit, commitEdit,
+  } = useInlineEdit<CellId>();
 
   // ── Multi-select ─────────────────────────────────────────────────────────────
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { selectedIds, toggleSelect, clearSelection } = useTableSelection();
   const [confirmDialog, setConfirmDialog] = useState<ConfirmState | null>(null);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
+  const containerRef  = useRef<HTMLDivElement>(null);
+  const router        = useRouter();
+  const highlightedId = useHighlight();
 
   // ── Store ────────────────────────────────────────────────────────────────────
   const stagedGroups = useStagedStore((s) => s.categoryGroups);
@@ -371,9 +217,7 @@ export function CategoriesTable({
 
   // ── Editing ──────────────────────────────────────────────────────────────────
   function startEditing(kind: SelectionKind, id: string, startChar?: string) {
-    setSelectedCell({ kind, id });
-    setEditingCell({ kind, id });
-    setEditStartChar(startChar);
+    startEdit({ kind, id }, startChar);
   }
 
   function handleGroupNameDone(id: string, value: string, action: DoneAction) {
@@ -381,9 +225,7 @@ export function CategoriesTable({
       pushUndo();
       stageUpdate("categoryGroups", id, { name: value });
     }
-    setEditingCell(null);
-    setEditStartChar(undefined);
-    setSelectedCell({ kind: "group", id });
+    commitEdit({ kind: "group", id });
   }
 
   function handleCategoryNameDone(id: string, value: string, action: DoneAction) {
@@ -391,9 +233,7 @@ export function CategoriesTable({
       pushUndo();
       stageUpdate("categories", id, { name: value });
     }
-    setEditingCell(null);
-    setEditStartChar(undefined);
-    setSelectedCell({ kind: "category", id });
+    commitEdit({ kind: "category", id });
   }
 
   // ── Adding rows ──────────────────────────────────────────────────────────────
@@ -439,18 +279,11 @@ export function CategoriesTable({
             stageDelete("categories", id);
           }
         }
-        setSelectedIds(new Set());
+        clearSelection();
       },
     });
   }
 
-  function toggleSelect(id: string, checked: boolean) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(id); else next.delete(id);
-      return next;
-    });
-  }
 
   const activeSelectedCount = [...selectedIds].filter((id) => {
     const g = stagedGroups[id];
@@ -470,13 +303,15 @@ export function CategoriesTable({
     return (
       <tr
         key={`g-${entity.id}`}
+        data-row-id={entity.id}
         className={cn(
-          "group/row border-b border-border/40 bg-muted/20",
-          isChecked && "bg-primary/5",
-          saveError && !isChecked && "bg-destructive/5",
-          !saveError && !isChecked && isDeleted && "opacity-50",
-          !saveError && !isChecked && !isDeleted && isNew && "bg-green-50/40 dark:bg-green-950/10",
-          !saveError && !isChecked && !isDeleted && !isNew && isUpdated && "bg-amber-50/40 dark:bg-amber-950/10",
+          "group/row border-b border-border/40 border-l-2 border-l-transparent bg-muted/20 transition-colors",
+          highlightedId === entity.id && "bg-primary/20 ring-2 ring-inset ring-primary/40",
+          highlightedId !== entity.id && isChecked && "bg-primary/10",
+          highlightedId !== entity.id && !isChecked && saveError && "bg-destructive/5 border-l-destructive",
+          highlightedId !== entity.id && !isChecked && !saveError && isDeleted && "opacity-50 border-l-muted-foreground/30",
+          highlightedId !== entity.id && !isChecked && !saveError && !isDeleted && isNew && "bg-green-50/40 dark:bg-green-950/10 border-l-green-500",
+          highlightedId !== entity.id && !isChecked && !saveError && !isDeleted && !isNew && isUpdated && "bg-amber-50/40 dark:bg-amber-950/10 border-l-amber-400",
         )}
       >
         {/* Checkbox */}
@@ -510,8 +345,8 @@ export function CategoriesTable({
             isSelected && !isEditing && "bg-primary/10 ring-1 ring-inset ring-primary/50",
             isEditing && "ring-1 ring-inset ring-primary",
           )}
-          onClick={() => isSelected && !isDeleted ? startEditing("group", entity.id) : setSelectedCell({ kind: "group", id: entity.id })}
-          onFocus={() => { if (!editingCell) setSelectedCell({ kind: "group", id: entity.id }); }}
+          onClick={() => isSelected && !isDeleted ? startEditing("group", entity.id) : selectCell({ kind: "group", id: entity.id })}
+          onFocus={() => { if (!editingCell) selectCell({ kind: "group", id: entity.id }); }}
         >
           <div className="flex items-center gap-1">
             <button
@@ -624,13 +459,15 @@ export function CategoriesTable({
     return (
       <tr
         key={`c-${entity.id}`}
+        data-row-id={entity.id}
         className={cn(
-          "group/row border-b border-border/20",
-          isChecked && "bg-primary/5",
-          saveError && !isChecked && "bg-destructive/5",
-          !saveError && !isChecked && isDeleted && "opacity-50",
-          !saveError && !isChecked && !isDeleted && isNew && "bg-green-50/30 dark:bg-green-950/10",
-          !saveError && !isChecked && !isDeleted && !isNew && isUpdated && "bg-amber-50/30 dark:bg-amber-950/10",
+          "group/row border-b border-border/20 border-l-2 border-l-transparent transition-colors",
+          highlightedId === entity.id && "bg-primary/20 ring-2 ring-inset ring-primary/40",
+          highlightedId !== entity.id && isChecked && "bg-primary/10",
+          highlightedId !== entity.id && !isChecked && saveError && "bg-destructive/5 border-l-destructive",
+          highlightedId !== entity.id && !isChecked && !saveError && isDeleted && "opacity-50 border-l-muted-foreground/30",
+          highlightedId !== entity.id && !isChecked && !saveError && !isDeleted && isNew && "bg-green-50/30 dark:bg-green-950/10 border-l-green-500",
+          highlightedId !== entity.id && !isChecked && !saveError && !isDeleted && !isNew && isUpdated && "bg-amber-50/30 dark:bg-amber-950/10 border-l-amber-400",
         )}
       >
         {/* Checkbox */}
@@ -664,8 +501,8 @@ export function CategoriesTable({
             isSelected && !isEditing && "bg-primary/10 ring-1 ring-inset ring-primary/50",
             isEditing && "ring-1 ring-inset ring-primary",
           )}
-          onClick={() => isSelected && !isDeleted ? startEditing("category", entity.id) : setSelectedCell({ kind: "category", id: entity.id })}
-          onFocus={() => { if (!editingCell) setSelectedCell({ kind: "category", id: entity.id }); }}
+          onClick={() => isSelected && !isDeleted ? startEditing("category", entity.id) : selectCell({ kind: "category", id: entity.id })}
+          onFocus={() => { if (!editingCell) selectCell({ kind: "category", id: entity.id }); }}
         >
           <div className="flex items-center gap-1 pl-6">
             {isEditing ? (
@@ -845,12 +682,11 @@ export function CategoriesTable({
           filteredCount={filteredCount} totalCount={totalCount}
           selectedCount={activeSelectedCount}
           onBulkDelete={handleBulkDelete}
-          onDeselect={() => setSelectedIds(new Set())}
+          onDeselect={() => clearSelection()}
         />
 
-        <div className="overflow-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead className="sticky top-0 z-10 bg-background">
+        <table className="w-full border-collapse text-sm">
+          <thead className="sticky top-0 z-10 bg-background">
               <tr className="border-b border-border">
                 <th className="w-9 px-3 py-1.5" />
                 <th className="w-1 p-0" />
@@ -875,18 +711,11 @@ export function CategoriesTable({
               {(typeFilter === "all" || typeFilter === "income") && (
                 <>
                   <tr>
-                    <td colSpan={7} className="border-b border-border/60 bg-muted/40 px-3 py-1">
+                    <td colSpan={7} className="border-b border-border/80 bg-muted/90 px-3 py-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                           Income
-                        </span>
-                        <Button
-                          variant="ghost" size="xs"
-                          className="h-5 text-xs text-muted-foreground"
-                          onClick={() => addGroup(true)}
-                        >
-                          + Add group
-                        </Button>
+                        </span>                      
                       </div>
                     </td>
                   </tr>
@@ -906,7 +735,7 @@ export function CategoriesTable({
                         {!collapsed && cats.map((cat) => renderCategoryRow(cat, group))}
                         {!collapsed && !group.isDeleted && (
                           <tr>
-                            <td colSpan={7} className="border-b border-border/20 px-2 py-0.5 pl-14">
+                            <td colSpan={7} className="border-b border-border/80 bg-muted/90 px-3 py-1.5">
                               <button
                                 onClick={() => addCategory(group.entity.id)}
                                 className="text-xs text-muted-foreground hover:text-foreground"
@@ -936,7 +765,7 @@ export function CategoriesTable({
                           className="h-5 text-xs text-muted-foreground"
                           onClick={() => addGroup(false)}
                         >
-                          + Add group
+                          + Add Expense group
                         </Button>
                       </div>
                     </td>
@@ -973,8 +802,7 @@ export function CategoriesTable({
                 </>
               )}
             </tbody>
-          </table>
-        </div>
+        </table>
       </div>
 
       {/* Confirm dialog */}

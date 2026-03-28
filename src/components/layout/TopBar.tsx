@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { ChevronDown, Save, X, Undo2, Redo2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -129,9 +131,10 @@ export function TopBar() {
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4">
       {/* Left: branding */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
+        <Image src="/icon.png" alt="Actual Bench" height={24} width={24} className="object-contain" />        
         <span className="text-sm font-semibold tracking-tight">
-          Actual Admin Panel
+          Actual Bench
         </span>
 
         {activeInstance && (
@@ -142,7 +145,7 @@ export function TopBar() {
               </span>
               <ChevronDown className="h-3 w-3 text-muted-foreground" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-60">
+            <DropdownMenuContent align="start" className="w-80">
               {instances.map((instance) => (
                 <DropdownMenuItem
                   key={instance.id}
@@ -206,12 +209,6 @@ export function TopBar() {
           <RefreshCw className={`h-3.5 w-3.5${isRefreshing ? " animate-spin" : ""}`} />
         </Button>
 
-        {hasChanges && (
-          <Badge variant="outline" className="mx-1 text-xs text-amber-600 border-amber-300">
-            Unsaved changes
-          </Badge>
-        )}
-
         <Button
           variant="ghost"
           size="sm"
@@ -225,7 +222,10 @@ export function TopBar() {
 
         <Button
           size="sm"
-          className="h-7 text-xs"
+          className={cn(
+            "h-7 text-xs bg-action text-action-foreground hover:bg-action-hover",
+            hasChanges && !isSaving && "ring-2 ring-offset-1 ring-action/50"
+          )}
           disabled={!hasChanges || isSaving}
           onClick={handleSave}
         >

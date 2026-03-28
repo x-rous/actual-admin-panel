@@ -2,9 +2,14 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useHighlight } from "@/hooks/useHighlight";
+import { useInlineEdit } from "@/hooks/useInlineEdit";
+import { useTableSelection } from "@/hooks/useTableSelection";
+import { NameInput } from "@/components/ui/editable-cell";
+import type { DoneAction } from "@/components/ui/editable-cell";
 import {
   RotateCcw, Trash2, RefreshCw,
-  ArrowUpDown, ArrowUp, ArrowDown, Search, X, AlertTriangle,
+  ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +21,8 @@ import { cn } from "@/lib/utils";
 import { useStagedStore } from "@/store/staged";
 import type { StagedEntity } from "@/types/staged";
 import type { Payee } from "@/types/entities";
+import { FilterBar } from "./FilterBar";
+import type { TypeFilter, RulesFilter, SortCol, SortDir } from "./FilterBar";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -23,179 +30,7 @@ const NAVIGABLE_COLS = ["name"] as const;
 type NavigableCol = (typeof NAVIGABLE_COLS)[number];
 type CellId = { rowId: string; colId: NavigableCol };
 type PayeeRow = StagedEntity<Payee>;
-type DoneAction = "down" | "up" | "tab" | "shiftTab" | "cancel" | "blur";
-type SortCol = "name" | "type";
-type SortDir = "asc" | "desc";
-type TypeFilter = "all" | "regular" | "transfer";
-type RulesFilter = "all" | "with_rules" | "no_rules";
 type ConfirmState = { title: string; message: string; onConfirm: () => void };
-
-// ─── NameInput ─────────────────────────────────────────────────────────────────
-
-function NameInput({
-  initialValue, startChar, onDone,
-}: {
-  initialValue: string;
-  startChar?: string;
-  onDone: (value: string, action: DoneAction) => void;
-}) {
-  const [value, setValue] = useState(startChar ?? initialValue);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const committed = useRef(false);
-
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.focus();
-    if (!startChar) el.select();
-  }, [startChar]);
-
-  function done(action: DoneAction) {
-    if (committed.current) return;
-    if (action !== "cancel" && value.trim() === "") {
-      committed.current = true;
-      onDone(initialValue, "cancel");
-      return;
-    }
-    committed.current = true;
-    onDone(value, action);
-  }
-
-  return (
-    <input
-      ref={inputRef}
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => done("blur")}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-        if (e.key === "Enter") { e.preventDefault(); done("down"); }
-        else if (e.key === "Escape") { e.preventDefault(); done("cancel"); }
-        else if (e.key === "Tab") { e.preventDefault(); done(e.shiftKey ? "shiftTab" : "tab"); }
-        else if (e.key === "ArrowDown") { e.preventDefault(); done("down"); }
-        else if (e.key === "ArrowUp") { e.preventDefault(); done("up"); }
-      }}
-      className="w-full min-w-0 border-0 bg-transparent p-0 text-sm leading-6 outline-none"
-    />
-  );
-}
-
-// ─── PillGroup ─────────────────────────────────────────────────────────────────
-
-function PillGroup<T extends string>({
-  options, value, onChange,
-}: {
-  options: { value: T; label: string }[];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="flex gap-px rounded border border-border bg-muted/40 p-px">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          className={cn(
-            "rounded px-2 py-0.5 text-xs transition-colors",
-            value === opt.value
-              ? "bg-background font-medium shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "regular", label: "Regular" },
-  { value: "transfer", label: "Transfer" },
-];
-
-const RULES_OPTIONS: { value: RulesFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "with_rules", label: "Has Rules" },
-  { value: "no_rules", label: "No Rules" },
-];
-
-// ─── FilterBar ─────────────────────────────────────────────────────────────────
-
-function FilterBar({
-  search, onSearchChange,
-  typeFilter, onTypeChange,
-  rulesFilter, onRulesFilterChange,
-  filteredCount, totalCount,
-  selectedCount, canFillDown,
-  onFillDown, onBulkDelete, onDeselect,
-}: {
-  search: string; onSearchChange: (v: string) => void;
-  typeFilter: TypeFilter; onTypeChange: (v: TypeFilter) => void;
-  rulesFilter: RulesFilter; onRulesFilterChange: (v: RulesFilter) => void;
-  filteredCount: number; totalCount: number;
-  selectedCount: number; canFillDown: boolean;
-  onFillDown: () => void;
-  onBulkDelete: () => void;
-  onDeselect: () => void;
-}) {
-  const hasFilters = search || typeFilter !== "all" || rulesFilter !== "all";
-
-  if (selectedCount > 0) {
-    return (
-      <div className="flex flex-wrap items-center gap-2 border-b border-border/40 bg-primary/5 px-2 py-1.5">
-        <span className="text-xs font-medium text-primary">{selectedCount} selected</span>
-        {canFillDown && (
-          <Button size="xs" variant="outline" onClick={onFillDown}>Fill Down</Button>
-        )}
-        <Button size="xs" variant="destructive" onClick={onBulkDelete}>Delete</Button>
-        <button onClick={onDeselect} className="ml-auto text-xs text-muted-foreground hover:text-foreground">
-          Clear selection
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-border/40 bg-muted/10 px-2 py-1.5">
-      <div className="relative flex items-center">
-        <Search className="absolute left-1.5 h-3.5 w-3.5 text-muted-foreground" />
-        <input
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search…"
-          className="h-6 w-44 rounded border border-border bg-background pl-6 pr-6 text-xs outline-none focus:ring-1 focus:ring-ring"
-        />
-        {search && (
-          <button
-            onClick={() => onSearchChange("")}
-            className="absolute right-1.5 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        )}
-      </div>
-
-      <PillGroup options={TYPE_OPTIONS} value={typeFilter} onChange={onTypeChange} />
-
-      <PillGroup options={RULES_OPTIONS} value={rulesFilter} onChange={onRulesFilterChange} />
-
-      {hasFilters && (
-        <button
-          onClick={() => { onSearchChange(""); onTypeChange("all"); onRulesFilterChange("all"); }}
-          className="text-xs text-muted-foreground underline hover:text-foreground"
-        >
-          Clear
-        </button>
-      )}
-
-      <span className="ml-auto text-xs text-muted-foreground">
-        {filteredCount === totalCount ? `${totalCount} rows` : `${filteredCount} of ${totalCount}`}
-      </span>
-    </div>
-  );
-}
 
 // ─── Sort helpers ──────────────────────────────────────────────────────────────
 
@@ -239,17 +74,19 @@ export function PayeesTable() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   // ── Cell selection + editing state ───────────────────────────────────────────
-  const [selectedCell, setSelectedCell] = useState<CellId | null>(null);
-  const [editingCell, setEditingCell] = useState<CellId | null>(null);
-  const [editStartChar, setEditStartChar] = useState<string | undefined>(undefined);
+  const {
+    selectedCell, editingCell, editStartChar,
+    selectCell: _selectCell, startEdit, commitEdit,
+  } = useInlineEdit<CellId>();
   const [bulkCount, setBulkCount] = useState(5);
 
   // ── Multi-select state ───────────────────────────────────────────────────────
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { selectedIds, toggleSelect: toggleSelectRow, toggleSelectAll: _toggleSelectAll, clearSelection } = useTableSelection();
   const [confirmDialog, setConfirmDialog] = useState<ConfirmState | null>(null);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
+  const containerRef  = useRef<HTMLDivElement>(null);
+  const router        = useRouter();
+  const highlightedId = useHighlight();
 
   // ── Store subscriptions ──────────────────────────────────────────────────────
   const staged = useStagedStore((s) => s.payees);
@@ -298,15 +135,17 @@ export function PayeesTable() {
   // ── Derived rows: filter → sort ──────────────────────────────────────────────
   const rows: PayeeRow[] = useMemo(() => {
     const q = search.toLowerCase();
-    let result = Object.values(staged) as PayeeRow[];
-
-    if (q) result = result.filter((r) => r.entity.name.toLowerCase().includes(q));
-    if (typeFilter === "regular") result = result.filter((r) => !r.entity.transferAccountId);
-    if (typeFilter === "transfer") result = result.filter((r) => !!r.entity.transferAccountId);
-    if (rulesFilter === "with_rules") result = result.filter((r) => (payeeRuleCount.get(r.entity.id) ?? 0) > 0);
-    if (rulesFilter === "no_rules") result = result.filter((r) => (payeeRuleCount.get(r.entity.id) ?? 0) === 0);
-
-    result = [...result].sort((a, b) => {
+    const result: PayeeRow[] = [];
+    for (const r of Object.values(staged) as PayeeRow[]) {
+      if (q && !r.entity.name.toLowerCase().includes(q)) continue;
+      if (typeFilter === "regular"  && r.entity.transferAccountId)  continue;
+      if (typeFilter === "transfer" && !r.entity.transferAccountId) continue;
+      const rc = payeeRuleCount.get(r.entity.id) ?? 0;
+      if (rulesFilter === "with_rules" && rc === 0) continue;
+      if (rulesFilter === "no_rules"   && rc  >  0) continue;
+      result.push(r);
+    }
+    result.sort((a, b) => {
       // New (unsaved) rows always float to the top so they're immediately visible
       if (a.isNew !== b.isNew) return a.isNew ? -1 : 1;
       if (!sortCol) return 0;
@@ -343,28 +182,8 @@ export function PayeesTable() {
   const allVisibleSelected = selectableRows.length > 0 && selectableRows.every((r) => selectedIds.has(r.entity.id));
   const someVisibleSelected = selectableRows.some((r) => selectedIds.has(r.entity.id));
 
-  function toggleSelectRow(id: string, checked: boolean) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(id); else next.delete(id);
-      return next;
-    });
-  }
-
   function toggleSelectAll() {
-    if (allVisibleSelected) {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        for (const id of visibleSelectableIds) next.delete(id);
-        return next;
-      });
-    } else {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        for (const id of visibleSelectableIds) next.add(id);
-        return next;
-      });
-    }
+    _toggleSelectAll(visibleSelectableIds, allVisibleSelected);
   }
 
   // ── Focus management ─────────────────────────────────────────────────────────
@@ -377,9 +196,7 @@ export function PayeesTable() {
 
   // ── Navigation helpers ───────────────────────────────────────────────────────
   function selectCell(rowId: string, colId: NavigableCol) {
-    setEditingCell(null);
-    setEditStartChar(undefined);
-    setSelectedCell({ rowId, colId });
+    _selectCell({ rowId, colId });
   }
 
   function moveFrom(rowId: string, colId: NavigableCol, rowDelta: number, colDelta: number) {
@@ -409,9 +226,7 @@ export function PayeesTable() {
 
   // ── Editing helpers ──────────────────────────────────────────────────────────
   function startEditing(rowId: string, colId: NavigableCol, startChar?: string) {
-    setSelectedCell({ rowId, colId });
-    setEditingCell({ rowId, colId });
-    setEditStartChar(startChar);
+    startEdit({ rowId, colId }, startChar);
   }
 
   function handleNameDone(rowId: string, value: string, action: DoneAction) {
@@ -419,9 +234,7 @@ export function PayeesTable() {
       pushUndo();
       stageUpdate("payees", rowId, { name: value });
     }
-    setEditingCell(null);
-    setEditStartChar(undefined);
-    setSelectedCell({ rowId, colId: "name" });
+    commitEdit({ rowId, colId: "name" });
     if (action === "down") moveFrom(rowId, "name", 1, 0);
     else if (action === "up") moveFrom(rowId, "name", -1, 0);
     else if (action === "tab") tabFrom(rowId, "name", false);
@@ -451,7 +264,7 @@ export function PayeesTable() {
     const count = deletableIds.length;
 
     if (count === 0) {
-      setSelectedIds(new Set());
+      clearSelection();
       return;
     }
 
@@ -474,7 +287,7 @@ export function PayeesTable() {
       onConfirm: () => {
         pushUndo();
         for (const id of deletableIds) stageDelete("payees", id);
-        setSelectedIds(new Set());
+        clearSelection();
       },
     });
   }
@@ -571,7 +384,7 @@ export function PayeesTable() {
           selectedCount={activeSelectedCount} canFillDown={canFillDown}
           onFillDown={handleFillDown}
           onBulkDelete={handleBulkDelete}
-          onDeselect={() => setSelectedIds(new Set())}
+          onDeselect={() => clearSelection()}
         />
 
         {rows.length === 0 ? (
@@ -581,8 +394,7 @@ export function PayeesTable() {
               : "No payees yet."}
           </div>
         ) : (
-          <div className="overflow-auto">
-            <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse text-sm">
               <thead className="sticky top-0 z-10 bg-background">
                 <tr className="border-b border-border">
                   {/* Select all (only selectable/regular rows) */}
@@ -637,13 +449,15 @@ export function PayeesTable() {
                   return (
                     <tr
                       key={entity.id}
+                      data-row-id={entity.id}
                       className={cn(
-                        "group/row border-b border-border/30",
-                        isRowSelected && "bg-primary/5",
-                        saveError && !isRowSelected && "bg-destructive/5",
-                        !saveError && !isRowSelected && isDeleted && "opacity-50",
-                        !saveError && !isRowSelected && !isDeleted && isNew && "bg-green-50/30 dark:bg-green-950/10",
-                        !saveError && !isRowSelected && !isDeleted && !isNew && isUpdated && "bg-amber-50/30 dark:bg-amber-950/10",
+                        "group/row border-b border-border/30 border-l-2 border-l-transparent transition-colors",
+                        highlightedId === entity.id && "bg-primary/20 ring-2 ring-inset ring-primary/40",
+                        highlightedId !== entity.id && isRowSelected && "bg-primary/10",
+                        highlightedId !== entity.id && !isRowSelected && saveError && "bg-destructive/5 border-l-destructive",
+                        highlightedId !== entity.id && !isRowSelected && !saveError && isDeleted && "opacity-50 border-l-muted-foreground/30",
+                        highlightedId !== entity.id && !isRowSelected && !saveError && !isDeleted && isNew && "bg-green-50/30 dark:bg-green-950/10 border-l-green-500",
+                        highlightedId !== entity.id && !isRowSelected && !saveError && !isDeleted && !isNew && isUpdated && "bg-amber-50/30 dark:bg-amber-950/10 border-l-amber-400",
                       )}
                     >
                       {/* Checkbox — transfer payees are not selectable */}
@@ -690,7 +504,7 @@ export function PayeesTable() {
                             selectCell(entity.id, "name");
                           }
                         }}
-                        onFocus={() => { if (!editingCell) setSelectedCell({ rowId: entity.id, colId: "name" }); }}
+                        onFocus={() => { if (!editingCell) selectCell(entity.id, "name"); }}
                       >
                         {nameEditing && !isTransfer ? (
                           <NameInput
@@ -801,8 +615,7 @@ export function PayeesTable() {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+          </table>
         )}
 
         <BulkAddBar bulkCount={bulkCount} onBulkCountChange={setBulkCount} onAdd={(n) => addRows(n, true)} />
