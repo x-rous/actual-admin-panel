@@ -4,9 +4,9 @@
   "description": "Web-based admin panel for Actual Budget — manage accounts, payees, categories, and rules via actual-http-api",
   "repository": {
     "type": "git",
-    "url": "https://github.com/x-rous/actual-admin-panel"
+    "url": "https://github.com/x-rous/actual-bench"
   },
-  "homepage": "https://github.com/x-rous/actual-admin-panel#readme",
+  "homepage": "https://github.com/x-rous/actual-bench#readme",
   "private": true,
   "scripts": {
     "dev": "NODE_OPTIONS=--max-old-space-size=2048 next dev",

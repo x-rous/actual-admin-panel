@@ -14,7 +14,7 @@ export default function SchedulesPage() {
       <p className="text-sm text-muted-foreground">
         Interested in contributing?{" "}
         <a
-          href="https://github.com/x-rous/actual-admin-panel/issues"
+          href="https://github.com/x-rous/actual-bench/issues"
           target="_blank"
           rel="noopener noreferrer"
           className="text-primary underline-offset-4 hover:underline"
