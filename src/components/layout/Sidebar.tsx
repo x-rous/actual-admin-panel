@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -30,11 +30,10 @@ export function Sidebar() {
   const pathname = usePathname();
   const version = process.env.NEXT_PUBLIC_APP_VERSION;
 
-  // Initialise from localStorage after mount to avoid SSR mismatch.
-  const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => {
-    setCollapsed(localStorage.getItem(LS_KEY) === "1");
-  }, []);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(LS_KEY) === "1";
+  });
 
   function toggle() {
     setCollapsed((prev) => {

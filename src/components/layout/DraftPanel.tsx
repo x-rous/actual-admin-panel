@@ -236,14 +236,17 @@ export function DraftPanel() {
   const rules             = useStagedStore((s) => s.rules);
   const schedules         = useStagedStore((s) => s.schedules);
 
-  const slices: Record<EntityKey, StagedMap<BaseEntity>> = {
-    accounts:       accounts       as StagedMap<BaseEntity>,
-    payees:         payees         as StagedMap<BaseEntity>,
-    categoryGroups: categoryGroups as StagedMap<BaseEntity>,
-    categories:     categories     as StagedMap<BaseEntity>,
-    rules:          rules          as StagedMap<BaseEntity>,
-    schedules:      schedules      as StagedMap<BaseEntity>,
-  };
+  const slices = useMemo<Record<EntityKey, StagedMap<BaseEntity>>>(
+    () => ({
+      accounts:       accounts       as StagedMap<BaseEntity>,
+      payees:         payees         as StagedMap<BaseEntity>,
+      categoryGroups: categoryGroups as StagedMap<BaseEntity>,
+      categories:     categories     as StagedMap<BaseEntity>,
+      rules:          rules          as StagedMap<BaseEntity>,
+      schedules:      schedules      as StagedMap<BaseEntity>,
+    }),
+    [accounts, payees, categoryGroups, categories, rules, schedules]
+  );
 
   const { errorCount, totalCount } = useMemo(() => {
     let errors = 0, total = 0;
