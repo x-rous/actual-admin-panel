@@ -3,9 +3,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/x-rous/actual-admin-panel/actions/workflows/ci.yml"><img src="https://github.com/x-rous/actual-admin-panel/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/x-rous/actual-admin-panel/releases"><img src="https://img.shields.io/github/v/tag/x-rous/actual-admin-panel?label=version" alt="Version" /></a>
-  <a href="https://github.com/x-rous/actual-admin-panel/blob/main/LICENSE"><img src="https://img.shields.io/github/license/x-rous/actual-admin-panel" alt="License" /></a>
+  <a href="https://github.com/x-rous/actual-bench/actions/workflows/ci.yml"><img src="https://github.com/x-rous/actual-bench/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/x-rous/actual-bench/releases"><img src="https://img.shields.io/github/v/tag/x-rous/actual-bench?label=version" alt="Version" /></a>
+  <a href="https://github.com/x-rous/actual-bench/blob/main/LICENSE"><img src="https://img.shields.io/github/license/x-rous/actual-bench" alt="License" /></a>
 </p>
 
 A web-based admin tool for [Actual Budget](https://actualbudget.org/) that connects to a self-hosted [actual-http-api](https://github.com/jhonderson/actual-http-api) server. Manage accounts, payees, categories, and rules through a clean UI with staged editing, undo/redo, and CSV import/export.
@@ -48,7 +48,7 @@ A web-based admin tool for [Actual Budget](https://actualbudget.org/) that conne
 Pull the pre-built image from GHCR — no local build required:
 
 ```bash
-docker run -p 3000:3000 ghcr.io/x-rous/actual-admin-panel:latest
+docker run -p 3000:3000 ghcr.io/x-rous/actual-bench:latest
 ```
 
 Or with Docker Compose (a ready-to-use `docker-compose.yml` is included in the repo):
@@ -132,8 +132,8 @@ Ready-to-use sample CSV files are included in [`public/samples/`](public/samples
 ### Setup
 
 ```bash
-git clone https://github.com/x-rous/actual-admin-panel.git
-cd actual-admin-panel
+git clone https://github.com/x-rous/actual-bench.git
+cd actual-bench
 npm install
 npm run dev
 ```
@@ -163,13 +163,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for release and contribution guidelines.
 The latest image is published to GHCR on every push to `main`:
 
 ```
-ghcr.io/x-rous/actual-admin-panel:latest
+ghcr.io/x-rous/actual-bench:latest
 ```
 
 Releases are also tagged by commit SHA, enabling pinned deployments and rollbacks:
 
 ```
-ghcr.io/x-rous/actual-admin-panel:<git-sha>
+ghcr.io/x-rous/actual-bench:<git-sha>
 ```
 
 ### Dev Container

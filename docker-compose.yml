@@ -1,6 +1,6 @@
 services:
-  actual-admin-panel:
-    image: ghcr.io/x-rous/actual-admin-panel:latest
+  actual-bench:
+    image: ghcr.io/x-rous/actual-bench:latest
     ports:
       - "3000:3000"
     environment:

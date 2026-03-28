@@ -29,8 +29,8 @@ jobs:
           file: docker/Dockerfile.prod
           push: true
           tags: |
-            ghcr.io/x-rous/actual-admin-panel:latest
-            ghcr.io/x-rous/actual-admin-panel:${{ github.sha }}
+            ghcr.io/x-rous/actual-bench:latest
+            ghcr.io/x-rous/actual-bench:${{ github.sha }}
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1

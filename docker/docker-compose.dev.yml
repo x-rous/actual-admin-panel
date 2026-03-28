@@ -2,16 +2,16 @@
 # Usage: docker compose -f docker/docker-compose.dev.yml up -d
 #
 # First-time setup (run once on the host before starting the container):
-#   cd /opt/projects/actual-admin-panel && npm install
+#   cd /opt/projects/actual-bench && npm install
 
 services:
-  actual-admin-panel-dev:
+  actual-bench-dev:
     image: node:20-alpine
-    container_name: actual-admin-panel-dev
+    container_name: actual-bench-dev
     working_dir: /workspace
     volumes:
       # Source code — edits on the host are reflected immediately via HMR
-      - /opt/projects/actual-admin-panel:/workspace
+      - /opt/projects/actual-bench:/workspace
       # Persist Turbopack's build cache across container restarts.
       # Without this, every restart rebuilds from scratch and triggers
       # an HMR loop while Turbopack writes its initial dev/types/*.ts files.
