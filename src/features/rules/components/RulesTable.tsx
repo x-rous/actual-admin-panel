@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Pencil, Trash2, RotateCcw, Copy, AlertTriangle, Search, X, Merge } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -161,7 +161,24 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId }: Props) {
   const clearSaveError = useStagedStore((s) => s.clearSaveError);
   const pushUndo = useStagedStore((s) => s.pushUndo);
 
-  const router = useRouter();
+  const router       = useRouter();
+  const pathname     = usePathname();
+  const searchParams = useSearchParams();
+
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = searchParams.get("highlight");
+    if (!id) return;
+    const el = document.querySelector(`[data-row-id="${id}"]`);
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    const tSet   = setTimeout(() => setHighlightedId(id), 0);
+    const tClear = setTimeout(() => {
+      setHighlightedId(null);
+      router.replace(pathname, { scroll: false });
+    }, 2500);
+    return () => { clearTimeout(tSet); clearTimeout(tClear); };
+  }, [searchParams, pathname, router]);
 
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
   const [search, setSearch] = useState("");
@@ -373,7 +390,7 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId }: Props) {
           </div>
         ) : (
           <table className="w-full text-xs">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-background">
               <tr className="border-b border-border bg-muted/30 text-muted-foreground">
                 <th className="w-8 px-3 py-2">
                   <input
@@ -401,11 +418,13 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId }: Props) {
                 return (
                   <tr
                     key={rule.id}
+                    data-row-id={rule.id}
                     className={cn(
                       "group border-b border-border hover:bg-muted/20 transition-colors align-top",
-                      isDirty && "bg-amber-50/40 dark:bg-amber-950/10",
-                      hasError && "bg-destructive/5",
-                      selectedIds.has(rule.id) && "bg-primary/5"
+                      highlightedId === rule.id && "bg-primary/20 ring-2 ring-inset ring-primary/40",
+                      highlightedId !== rule.id && selectedIds.has(rule.id) && "bg-primary/10",
+                      highlightedId !== rule.id && !selectedIds.has(rule.id) && hasError && "bg-destructive/5",
+                      highlightedId !== rule.id && !selectedIds.has(rule.id) && !hasError && isDirty && "bg-amber-50/40 dark:bg-amber-950/10",
                     )}
                   >
                     {/* Checkbox */}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   RotateCcw, Trash2, RefreshCw, Eye, EyeOff,
   ArrowUpDown, ArrowUp, ArrowDown, Search, X, AlertTriangle,
@@ -223,7 +223,24 @@ export function CategoriesTable({
   const [confirmDialog, setConfirmDialog] = useState<ConfirmState | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
+  const router       = useRouter();
+  const pathname     = usePathname();
+  const searchParams = useSearchParams();
+
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = searchParams.get("highlight");
+    if (!id) return;
+    const el = document.querySelector(`[data-row-id="${id}"]`);
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    const tSet   = setTimeout(() => setHighlightedId(id), 0);
+    const tClear = setTimeout(() => {
+      setHighlightedId(null);
+      router.replace(pathname, { scroll: false });
+    }, 2500);
+    return () => { clearTimeout(tSet); clearTimeout(tClear); };
+  }, [searchParams, pathname, router]);
 
   // ── Store ────────────────────────────────────────────────────────────────────
   const stagedGroups = useStagedStore((s) => s.categoryGroups);
@@ -470,13 +487,15 @@ export function CategoriesTable({
     return (
       <tr
         key={`g-${entity.id}`}
+        data-row-id={entity.id}
         className={cn(
-          "group/row border-b border-border/40 bg-muted/20",
-          isChecked && "bg-primary/5",
-          saveError && !isChecked && "bg-destructive/5",
-          !saveError && !isChecked && isDeleted && "opacity-50",
-          !saveError && !isChecked && !isDeleted && isNew && "bg-green-50/40 dark:bg-green-950/10",
-          !saveError && !isChecked && !isDeleted && !isNew && isUpdated && "bg-amber-50/40 dark:bg-amber-950/10",
+          "group/row border-b border-border/40 bg-muted/20 transition-colors",
+          highlightedId === entity.id && "bg-primary/20 ring-2 ring-inset ring-primary/40",
+          highlightedId !== entity.id && isChecked && "bg-primary/10",
+          highlightedId !== entity.id && !isChecked && saveError && "bg-destructive/5",
+          highlightedId !== entity.id && !isChecked && !saveError && isDeleted && "opacity-50",
+          highlightedId !== entity.id && !isChecked && !saveError && !isDeleted && isNew && "bg-green-50/40 dark:bg-green-950/10",
+          highlightedId !== entity.id && !isChecked && !saveError && !isDeleted && !isNew && isUpdated && "bg-amber-50/40 dark:bg-amber-950/10",
         )}
       >
         {/* Checkbox */}
@@ -624,13 +643,15 @@ export function CategoriesTable({
     return (
       <tr
         key={`c-${entity.id}`}
+        data-row-id={entity.id}
         className={cn(
-          "group/row border-b border-border/20",
-          isChecked && "bg-primary/5",
-          saveError && !isChecked && "bg-destructive/5",
-          !saveError && !isChecked && isDeleted && "opacity-50",
-          !saveError && !isChecked && !isDeleted && isNew && "bg-green-50/30 dark:bg-green-950/10",
-          !saveError && !isChecked && !isDeleted && !isNew && isUpdated && "bg-amber-50/30 dark:bg-amber-950/10",
+          "group/row border-b border-border/20 transition-colors",
+          highlightedId === entity.id && "bg-primary/20 ring-2 ring-inset ring-primary/40",
+          highlightedId !== entity.id && isChecked && "bg-primary/10",
+          highlightedId !== entity.id && !isChecked && saveError && "bg-destructive/5",
+          highlightedId !== entity.id && !isChecked && !saveError && isDeleted && "opacity-50",
+          highlightedId !== entity.id && !isChecked && !saveError && !isDeleted && isNew && "bg-green-50/30 dark:bg-green-950/10",
+          highlightedId !== entity.id && !isChecked && !saveError && !isDeleted && !isNew && isUpdated && "bg-amber-50/30 dark:bg-amber-950/10",
         )}
       >
         {/* Checkbox */}
@@ -875,18 +896,11 @@ export function CategoriesTable({
               {(typeFilter === "all" || typeFilter === "income") && (
                 <>
                   <tr>
-                    <td colSpan={7} className="border-b border-border/60 bg-muted/40 px-3 py-1">
+                    <td colSpan={7} className="border-b border-border/80 bg-muted/90 px-3 py-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                           Income
-                        </span>
-                        <Button
-                          variant="ghost" size="xs"
-                          className="h-5 text-xs text-muted-foreground"
-                          onClick={() => addGroup(true)}
-                        >
-                          + Add group
-                        </Button>
+                        </span>                      
                       </div>
                     </td>
                   </tr>
@@ -906,7 +920,7 @@ export function CategoriesTable({
                         {!collapsed && cats.map((cat) => renderCategoryRow(cat, group))}
                         {!collapsed && !group.isDeleted && (
                           <tr>
-                            <td colSpan={7} className="border-b border-border/20 px-2 py-0.5 pl-14">
+                            <td colSpan={7} className="border-b border-border/80 bg-muted/90 px-3 py-1.5">
                               <button
                                 onClick={() => addCategory(group.entity.id)}
                                 className="text-xs text-muted-foreground hover:text-foreground"
@@ -936,7 +950,7 @@ export function CategoriesTable({
                           className="h-5 text-xs text-muted-foreground"
                           onClick={() => addGroup(false)}
                         >
-                          + Add group
+                          + Add Expense group
                         </Button>
                       </div>
                     </td>

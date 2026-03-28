@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useStagedStore, selectHasChanges } from "@/store/staged";
 import { CONDITION_FIELDS, ACTION_FIELDS } from "@/features/rules/utils/ruleFields";
 import { rulePreview, valueToString } from "@/features/rules/utils/rulePreview";
@@ -38,6 +39,14 @@ const ENTITY_LABELS: Record<EntityKey, string> = {
   categories: "Categories",
   rules: "Rules",
   schedules: "Schedules",
+};
+
+const ENTITY_ROUTES: Partial<Record<EntityKey, string>> = {
+  accounts: "/accounts",
+  payees: "/payees",
+  categoryGroups: "/categories",
+  categories: "/categories",
+  rules: "/rules",
 };
 
 // ─── Generic label (name or ID prefix) ───────────────────────────────────────
@@ -101,10 +110,12 @@ function ItemGroup({
   variant,
   items,
   getLabelFn,
+  onItemClick,
 }: {
   variant: ItemVariant;
   items: StagedEntity<BaseEntity>[];
   getLabelFn: (entity: BaseEntity) => LabelResult;
+  onItemClick?: (id: string) => void;
 }) {
   const label =
     variant === "created"       ? "Created" :
@@ -131,19 +142,28 @@ function ItemGroup({
         {items.slice(0, 8).map((s) => {
           const { text, title } = getLabelFn(s.entity);
           return (
-            <li key={s.entity.id} className="flex items-start gap-1.5">
-              <span className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", dot)} />
-              <span
-                className="min-w-0 flex-1 truncate text-xs text-foreground/80 leading-tight"
-                title={title ?? text}
-              >
-                {text}
-                {s.saveError && (
-                  <span className="block text-[10px] text-destructive leading-tight">
-                    {s.saveError}
-                  </span>
+            <li key={s.entity.id}>
+              <button
+                type="button"
+                onClick={() => onItemClick?.(s.entity.id)}
+                className={cn(
+                  "flex w-full items-start gap-1.5 rounded-sm px-1 -mx-1 text-left",
+                  onItemClick && "cursor-pointer transition-colors hover:bg-accent"
                 )}
-              </span>
+              >
+                <span className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", dot)} />
+                <span
+                  className="min-w-0 flex-1 truncate text-xs text-foreground/80 leading-tight"
+                  title={title ?? text}
+                >
+                  {text}
+                  {s.saveError && (
+                    <span className="block text-[10px] text-destructive leading-tight">
+                      {s.saveError}
+                    </span>
+                  )}
+                </span>
+              </button>
             </li>
           );
         })}
@@ -164,11 +184,13 @@ function EntitySection({
   entries,
   getLabelFn,
   mergeDepIds,
+  onItemClick,
 }: {
   label: string;
   entries: StagedEntity<BaseEntity>[];
   getLabelFn?: (entity: BaseEntity) => LabelResult;
   mergeDepIds?: { created: Set<string>; deleted: Set<string> };
+  onItemClick?: (id: string) => void;
 }) {
   const allCreated = entries.filter((s) => s.isNew && !s.isDeleted);
   const updated    = entries.filter((s) => s.isUpdated && !s.isNew && !s.isDeleted);
@@ -189,12 +211,12 @@ function EntitySection({
     <div className="px-3 py-2">
       <p className="mb-1.5 text-xs font-semibold">{label}</p>
       <div className="flex flex-col gap-1">
-        {mergeCreated.length   > 0 && <ItemGroup variant="merge-created" items={mergeCreated}   getLabelFn={labelFn} />}
-        {regularCreated.length > 0 && <ItemGroup variant="created"       items={regularCreated} getLabelFn={labelFn} />}
-        {updated.length        > 0 && <ItemGroup variant="updated"       items={updated}        getLabelFn={labelFn} />}
-        {mergeDeleted.length   > 0 && <ItemGroup variant="merge-deleted" items={mergeDeleted}   getLabelFn={labelFn} />}
-        {regularDeleted.length > 0 && <ItemGroup variant="deleted"       items={regularDeleted} getLabelFn={labelFn} />}
-        {errored.length        > 0 && <ItemGroup variant="error"         items={errored}        getLabelFn={labelFn} />}
+        {mergeCreated.length   > 0 && <ItemGroup variant="merge-created" items={mergeCreated}   getLabelFn={labelFn} onItemClick={onItemClick} />}
+        {regularCreated.length > 0 && <ItemGroup variant="created"       items={regularCreated} getLabelFn={labelFn} onItemClick={onItemClick} />}
+        {updated.length        > 0 && <ItemGroup variant="updated"       items={updated}        getLabelFn={labelFn} onItemClick={onItemClick} />}
+        {mergeDeleted.length   > 0 && <ItemGroup variant="merge-deleted" items={mergeDeleted}   getLabelFn={labelFn} onItemClick={onItemClick} />}
+        {regularDeleted.length > 0 && <ItemGroup variant="deleted"       items={regularDeleted} getLabelFn={labelFn} onItemClick={onItemClick} />}
+        {errored.length        > 0 && <ItemGroup variant="error"         items={errored}        getLabelFn={labelFn} onItemClick={onItemClick} />}
       </div>
     </div>
   );
@@ -203,6 +225,7 @@ function EntitySection({
 // ─── DraftPanel ───────────────────────────────────────────────────────────────
 
 export function DraftPanel() {
+  const router            = useRouter();
   const hasChanges        = useStagedStore(selectHasChanges);
   const mergeDependencies = useStagedStore((s) => s.mergeDependencies);
   const accounts          = useStagedStore((s) => s.accounts);
@@ -225,6 +248,16 @@ export function DraftPanel() {
     return acc + Object.values(slices[key]).filter((s) => s.saveError).length;
   }, 0);
 
+  const totalCount = (Object.keys(ENTITY_LABELS) as EntityKey[]).reduce((acc, key) => {
+    return acc + Object.values(slices[key]).filter((s) => s.isNew || s.isUpdated || s.isDeleted).length;
+  }, 0);
+
+  const handleItemClick = (entityKey: EntityKey, id: string) => {
+    const route = ENTITY_ROUTES[entityKey];
+    if (!route) return;
+    router.push(`${route}?highlight=${id}`);
+  };
+
   const entityMaps: EntityMaps = useMemo(
     () => ({ payees, categories, accounts }),
     [payees, categories, accounts]
@@ -241,7 +274,7 @@ export function DraftPanel() {
   );
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-l border-border bg-background">
+    <aside className="flex w-68 shrink-0 flex-col border-l border-border bg-background">
       <div className="flex items-center justify-between px-3 py-3.5">
         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Draft Changes
@@ -253,8 +286,8 @@ export function DraftPanel() {
             </Badge>
           )}
           {hasChanges && errorCount === 0 && (
-            <Badge variant="secondary" className="text-xs">
-              pending
+            <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+              {totalCount} change{totalCount !== 1 ? "s" : ""}
             </Badge>
           )}
         </div>
@@ -274,6 +307,7 @@ export function DraftPanel() {
               entries={Object.values(slices[key])}
               getLabelFn={key === "rules" ? getRuleLabelFn : undefined}
               mergeDepIds={key === "rules" ? ruleMergeDepIds : undefined}
+              onItemClick={ENTITY_ROUTES[key] ? (id) => handleItemClick(key, id) : undefined}
             />
           ))}
         </div>

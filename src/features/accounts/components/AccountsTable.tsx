@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   Archive, ArchiveRestore, RotateCcw, Trash2, RefreshCw,
   ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle,
@@ -99,6 +100,25 @@ function SortIndicator({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortC
 // ─── AccountsTable ─────────────────────────────────────────────────────────────
 
 export function AccountsTable() {
+  const router       = useRouter();
+  const pathname     = usePathname();
+  const searchParams = useSearchParams();
+
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = searchParams.get("highlight");
+    if (!id) return;
+    const el = document.querySelector(`[data-row-id="${id}"]`);
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    const tSet   = setTimeout(() => setHighlightedId(id), 0);
+    const tClear = setTimeout(() => {
+      setHighlightedId(null);
+      router.replace(pathname, { scroll: false });
+    }, 2500);
+    return () => { clearTimeout(tSet); clearTimeout(tClear); };
+  }, [searchParams, pathname, router]);
+
   // ── Filter / sort state ──────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -492,13 +512,15 @@ export function AccountsTable() {
                   return (
                     <tr
                       key={entity.id}
+                      data-row-id={entity.id}
                       className={cn(
-                        "group/row border-b border-border/30",
-                        isRowSelected && "bg-primary/5",
-                        saveError && !isRowSelected && "bg-destructive/5",
-                        !saveError && !isRowSelected && isDeleted && "opacity-50",
-                        !saveError && !isRowSelected && !isDeleted && isNew && "bg-green-50/30 dark:bg-green-950/10",
-                        !saveError && !isRowSelected && !isDeleted && !isNew && isUpdated && "bg-amber-50/30 dark:bg-amber-950/10",
+                        "group/row border-b border-border/30 transition-colors",
+                        highlightedId === entity.id && "bg-primary/20 ring-2 ring-inset ring-primary/40",
+                        highlightedId !== entity.id && isRowSelected && "bg-primary/10",
+                        highlightedId !== entity.id && !isRowSelected && saveError && "bg-destructive/5",
+                        highlightedId !== entity.id && !isRowSelected && !saveError && isDeleted && "opacity-50",
+                        highlightedId !== entity.id && !isRowSelected && !saveError && !isDeleted && isNew && "bg-green-50/30 dark:bg-green-950/10",
+                        highlightedId !== entity.id && !isRowSelected && !saveError && !isDeleted && !isNew && isUpdated && "bg-amber-50/30 dark:bg-amber-950/10",
                       )}
                     >
                       {/* Checkbox */}
