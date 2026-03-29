@@ -1,15 +1,15 @@
-name: Deploy
+name: Edge
 
 on:
   push:
-    branches: [main]
+    branches: [edge]
 
 permissions:
   contents: read
   packages: write
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,8 +29,8 @@ jobs:
           file: docker/Dockerfile.prod
           push: true
           tags: |
-            ghcr.io/x-rous/actual-bench:latest
-            ghcr.io/x-rous/actual-bench:${{ github.sha }}
+            ghcr.io/x-rous/actual-bench:edge
+            ghcr.io/x-rous/actual-bench:edge-${{ github.sha }}
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
