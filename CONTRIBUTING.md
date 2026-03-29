@@ -2,6 +2,20 @@
 
 Contributions are welcome — bug reports, feature requests, and pull requests alike.
 
+## Branch Model
+
+```
+feature/*  ──PR──►  edge  ──monthly PR──►  main  ──tag v1.x.0──►  release
+```
+
+| Branch | Purpose | Docker tag |
+|---|---|---|
+| `main` | Stable releases only — updated once per month | `:latest` + `:<version>` |
+| `edge` | Integration branch — all merged PRs land here first | `:edge` |
+| `feature/*`, `fix/*` | Short-lived working branches — one per issue or feature | none |
+
+**All pull requests must target `edge`, not `main`.** The PR template will remind you.
+
 ## Reporting bugs
 
 Open an issue on [GitHub Issues](https://github.com/x-rous/actual-bench/issues) using the **Bug report** template. Include:
@@ -27,6 +41,7 @@ Open an issue using the **Feature request** template. Check open issues first to
 ```bash
 git clone https://github.com/x-rous/actual-bench.git
 cd actual-bench
+git checkout edge       # start from edge, not main
 npm install
 npm run dev
 ```
@@ -62,11 +77,7 @@ docs: document sessionStorage behaviour
 
 Check issues labelled [`good first issue`](https://github.com/x-rous/actual-bench/issues?q=is%3Aissue+label%3A%22good+first+issue%22) or [`help wanted`](https://github.com/x-rous/actual-bench/issues?q=is%3Aissue+label%3A%22help+wanted%22).
 
-The highest-impact open areas are:
-
-- **Schedules page** — list and edit scheduled transactions via the API
-- **Pagination** — the app currently loads all entities at once; large budgets need virtual scrolling or server-side pagination
-- **Accessibility** — ARIA live regions for async save operations, keyboard navigation improvements
+Planned roadmap items with effort estimates are tracked in [`agents/future-roadmap.md`](agents/future-roadmap.md). If you want to pick up a `pending` item, open an issue first to claim it and avoid duplicate work.
 
 ## Project structure
 
@@ -98,3 +109,57 @@ src/
 - **State** — Zustand stores for global state; TanStack Query for server data
 - **Components** — React Server Components where possible; `"use client"` only when needed
 - **Commits** — one logical change per commit; keep PRs focused
+- **IDs** — always use `generateId()` from `src/lib/uuid.ts`; never `crypto.randomUUID()` directly (fails on HTTP)
+
+---
+
+## Workflows
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| **CI** (`.github/workflows/ci.yml`) | All pushes + PRs | Lint, type-check, build, test — must pass before any merge |
+| **Edge** (`.github/workflows/edge.yml`) | Push to `edge` | Builds and pushes `:edge` + `:edge-{sha}` Docker tags, deploys to VPS |
+| **Release** (`.github/workflows/release.yml`) | Push `v*` tag | Builds and pushes `:latest` + `:<version>` Docker tags, deploys to VPS, creates GitHub Release with changelog notes |
+
+## Docker Tags
+
+| Tag | Stability | When to use |
+|---|---|---|
+| `:latest` | Stable — monthly release | Production / stable self-hosting (default) |
+| `:<version>` (e.g. `:1.1.0`) | Stable — pinned | When you need a specific version |
+| `:edge` | Unstable — updated on every merge to `edge` | Testing latest changes before release |
+| `:edge-<sha>` | Unstable — specific commit | Debugging a specific change |
+
+---
+
+## Release Process (Maintainer)
+
+Releases are cut at the end of each month. When completing a roadmap item, always:
+1. Mark it `status: complete` in `agents/future-roadmap.md`
+2. Add the feature to the relevant section of `FEATURES.md`
+3. Add an entry under `## [Unreleased]` in `CHANGELOG.md`
+
+### Cutting a release
+
+```bash
+# 1. On the edge branch — bump version and update changelog
+git checkout edge && git pull origin edge
+
+# Edit package.json "version": "1.1.0"
+# Edit CHANGELOG.md: rename [Unreleased] → [1.1.0] - YYYY-MM-DD, add new [Unreleased] above
+
+git add package.json CHANGELOG.md
+git commit -m "chore: release v1.1.0"
+git push origin edge
+```
+
+Open a PR from `edge` → `main`. After CI passes, approve and merge.
+
+```bash
+# 2. On main — tag the release
+git checkout main && git pull origin main
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+Pushing the tag triggers `release.yml` automatically — Docker images are built, VPS is updated, and the GitHub Release is created with the changelog notes.
