@@ -119,7 +119,7 @@
 - Entity counts shown in page headers
 - Help menu in the sidebar with links to the GitHub repository, issue tracker, and changelog
 
-## Not Yet Implemented
+---
 
-- **Schedules** — placeholder page, pending API support in `actual-http-api`
-- **Tags** — placeholder page, pending tag endpoint support in `actual-http-api`
+> Planned features and improvements are tracked in [`agents/future-roadmap.md`](agents/future-roadmap.md).
+> When a roadmap item ships, add it to the relevant section above and log it in [`CHANGELOG.md`](CHANGELOG.md).

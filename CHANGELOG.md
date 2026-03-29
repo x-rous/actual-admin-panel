@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-03-25
+### Added
+- **Help & feedback menu** — sidebar dropdown with links to GitHub repository, issue tracker, and changelog
+- **Logo** — Actual Bench logo shown at the top of the connect form
+- **FEATURES.md** — user-facing feature reference document at repo root
+- **Sample CSV files** — `public/samples csv/` contains sample accounts, payees, categories, and rules for testing
+
+### Changed
+- **Connect form** — redesigned to a two-step flow: validate server credentials first, then select from the list of budgets returned by the server; Budget Sync ID field removed from manual input
+- **README.md** — updated Quick Start section with inline `docker-compose.yml` content; updated connect flow documentation
+
+### Fixed
+- **`crypto.randomUUID` on HTTP** — replaced all 16 call sites with `generateId()` from `src/lib/uuid.ts`, which falls back to a `Math.random`-based UUID v4 on non-HTTPS contexts (issue #13)
+
+## [1.0.0] - 2026-03-25
 
 ### Added
 - **Rules** — full condition/action builder with support for all actual-http-api operations (`contains`, `matches`, `oneOf`, `is`, `isNot`, `gt`, `lt`, `gte`, `lte`, `isapprox`, `isbetween`, `onBudget`, `offBudget`)
