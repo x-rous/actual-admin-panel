@@ -82,6 +82,48 @@ export async function testConnection(
   await apiRequest<unknown>(connection, "/accounts", { method: "GET" });
 }
 
+// ─── Version endpoints ────────────────────────────────────────────────────────
+
+/**
+ * Returns the actual-http-api wrapper version.
+ * Server-level endpoint — no budgetSyncId required.
+ * Path: GET /v1/actualhttpapiversion
+ */
+export async function getApiVersion(
+  baseUrl: string,
+  apiKey: string
+): Promise<string> {
+  const response = await fetch("/api/proxy", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      connection: { baseUrl, apiKey },
+      path: "/v1/actualhttpapiversion",
+      method: "GET",
+    }),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = (await response.json()) as { version?: string };
+  if (!data.version) throw new Error("No version in response");
+  return data.version;
+}
+
+/**
+ * Returns the Actual Budget server version.
+ * Budget-scoped endpoint — requires an open budget connection.
+ * Path: GET /budgets/{id}/actualserverversion
+ */
+export async function getServerVersion(
+  connection: ConnectionInstance
+): Promise<string> {
+  const data = await apiRequest<{ version?: string }>(
+    connection,
+    "/actualserverversion"
+  );
+  if (!data.version) throw new Error("No version in response");
+  return data.version;
+}
+
 // ─── Budget listing ───────────────────────────────────────────────────────────
 
 export type BudgetFile = {

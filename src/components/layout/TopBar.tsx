@@ -20,6 +20,7 @@ import {
   useConnectionStore,
   selectActiveInstance,
 } from "@/store/connection";
+import { useServerVersions } from "@/hooks/useServerVersions";
 import {
   useStagedStore,
   selectHasChanges,
@@ -41,6 +42,8 @@ export function TopBar() {
   const instances = useConnectionStore((s) => s.instances);
   const setActive = useConnectionStore((s) => s.setActiveInstance);
   const clearAll = useConnectionStore((s) => s.clearAll);
+
+  const { apiVersion, serverVersion } = useServerVersions(activeInstance);
 
   const hasChanges = useStagedStore(selectHasChanges);
   const canUndo = useStagedStore(selectCanUndo);
@@ -170,6 +173,19 @@ export function TopBar() {
               >
                 Disconnect
               </DropdownMenuItem>
+              {(apiVersion ?? serverVersion) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground select-none">
+                    {[
+                      apiVersion && `api v${apiVersion}`,
+                      serverVersion && `server v${serverVersion}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
