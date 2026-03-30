@@ -118,6 +118,7 @@
 - Toast notifications for all success, error, and warning states
 - Entity counts shown in page headers
 - Help menu in the sidebar with links to the GitHub repository, issue tracker, and changelog
+- Server version info shown at the bottom of the connection dropdown — displays `actual-http-api` and Actual Budget server versions when available
 
 ---
 
