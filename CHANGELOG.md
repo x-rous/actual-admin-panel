@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Server version display** — connection dropdown shows `actual-http-api` and Actual Budget server versions; fetched once per session, silently omitted on older API versions that don't expose the endpoints
 - **Help & feedback menu** — sidebar dropdown with links to GitHub repository, issue tracker, and changelog
 - **Logo** — Actual Bench logo shown at the top of the connect form
 - **FEATURES.md** — user-facing feature reference document at repo root

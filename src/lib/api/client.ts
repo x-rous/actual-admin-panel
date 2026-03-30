@@ -82,6 +82,66 @@ export async function testConnection(
   await apiRequest<unknown>(connection, "/accounts", { method: "GET" });
 }
 
+// ─── Version endpoints ────────────────────────────────────────────────────────
+
+/**
+ * Returns the actual-http-api wrapper version.
+ * Server-level endpoint — no budgetSyncId required.
+ * Path: GET /v1/actualhttpapiversion
+ */
+export async function getApiVersion(
+  baseUrl: string,
+  apiKey: string
+): Promise<string> {
+  const response = await fetch("/api/proxy", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      connection: { baseUrl, apiKey },
+      path: "/v1/actualhttpapiversion",
+      method: "GET",
+    }),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = (await response.json()) as { data?: { version?: string } };
+  if (!data.data?.version) throw new Error("No version in response");
+  return data.data.version;
+}
+
+/**
+ * Returns the Actual Budget server version.
+ * Budget-scoped endpoint — requires an open budget connection.
+ * Path: GET /budgets/{id}/actualserverversion
+ */
+export async function getServerVersion(
+  baseUrl: string,
+  apiKey: string,
+  budgetSyncId: string
+): Promise<string> {
+  const response = await fetch("/api/proxy", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      connection: { baseUrl, apiKey, budgetSyncId },
+      path: "/actualserverversion",
+      method: "GET",
+    }),
+  });
+
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const json = (await response.json()) as { error?: string; message?: string };
+      message = json.error ?? json.message ?? message;
+    } catch {}
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as { data?: { version?: string } };
+  if (!data.data?.version) throw new Error("No version in response");
+  return data.data.version;
+}
+
 // ─── Budget listing ───────────────────────────────────────────────────────────
 
 export type BudgetFile = {

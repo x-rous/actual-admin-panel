@@ -42,6 +42,7 @@ export function TopBar() {
   const setActive = useConnectionStore((s) => s.setActiveInstance);
   const clearAll = useConnectionStore((s) => s.clearAll);
 
+
   const hasChanges = useStagedStore(selectHasChanges);
   const canUndo = useStagedStore(selectCanUndo);
   const canRedo = useStagedStore(selectCanRedo);
@@ -173,6 +174,22 @@ export function TopBar() {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+
+        {activeInstance && (activeInstance.apiVersion ?? activeInstance.serverVersion) && (
+          <div className="flex items-center gap-2 text-xs select-none">
+            {activeInstance.apiVersion && (
+              <span className="px-3 py-1.5 rounded-md bg-muted text-muted-foreground">
+              actual-http-api v{activeInstance.apiVersion}
+              </span>
+            )}
+            {activeInstance.serverVersion && (
+              <span className="px-3 py-1.5 rounded-md bg-muted text-muted-foreground">
+              actual budget v{activeInstance.serverVersion}
+              </span>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* Right: undo/redo + unsaved indicator + save/discard */}
