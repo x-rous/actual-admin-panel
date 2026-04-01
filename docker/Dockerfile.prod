@@ -42,6 +42,9 @@ COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 # package.json required by npm start
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
+# Branded startup wrapper (reads package.json version, spawns next start)
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+
 USER nextjs
 EXPOSE 3000
 CMD ["npm", "start"]

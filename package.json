@@ -1,6 +1,6 @@
 {
   "name": "actual-bench",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Web-based admin panel for Actual Budget — manage accounts, payees, categories, and rules via actual-http-api",
   "repository": {
     "type": "git",
@@ -12,7 +12,7 @@
     "dev": "NODE_OPTIONS=--max-old-space-size=2048 next dev --webpack",
     "preview": "NODE_OPTIONS=--max-old-space-size=512 next start",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/start.mjs",
     "lint": "eslint",
     "test": "NODE_OPTIONS=--max-old-space-size=1024 jest",
     "clean": "rm -rf .next .next-build tsconfig.tsbuildinfo"
