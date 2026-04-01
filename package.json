@@ -12,7 +12,7 @@
     "dev": "NODE_OPTIONS=--max-old-space-size=2048 next dev --webpack",
     "preview": "NODE_OPTIONS=--max-old-space-size=512 next start",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/start.mjs",
     "lint": "eslint",
     "test": "NODE_OPTIONS=--max-old-space-size=1024 jest",
     "clean": "rm -rf .next .next-build tsconfig.tsbuildinfo"
