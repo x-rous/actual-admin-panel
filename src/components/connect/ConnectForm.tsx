@@ -179,8 +179,6 @@ export function ConnectForm() {
         getApiVersion(instance.baseUrl, instance.apiKey),
         getServerVersion(instance.baseUrl, instance.apiKey, instance.budgetSyncId),
       ]);
-      console.debug("[reconnect] apiVersion:", apiVersionResult);
-      console.debug("[reconnect] serverVersion:", serverVersionResult);
       updateInstance(instance.id, {
         apiVersion: apiVersionResult.status === "fulfilled" ? apiVersionResult.value : instance.apiVersion,
         serverVersion: serverVersionResult.status === "fulfilled" ? serverVersionResult.value : instance.serverVersion,
@@ -243,10 +241,16 @@ export function ConnectForm() {
     setConnectStatus({ kind: "idle" });
 
     try {
-      const [fetched, apiVersion] = await Promise.all([
+      const [budgetsResult, apiVersionResult] = await Promise.allSettled([
         listBudgets(url, key),
         getApiVersion(url, key),
       ]);
+
+      if (budgetsResult.status === "rejected") throw budgetsResult.reason;
+
+      const fetched = budgetsResult.value;
+      const apiVersion =
+        apiVersionResult.status === "fulfilled" ? apiVersionResult.value : null;
 
       if (fetched.length === 0) {
         setValidateStatus({ kind: "error", message: "No remote budgets found on this server." });

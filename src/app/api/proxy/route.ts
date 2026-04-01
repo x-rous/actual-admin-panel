@@ -19,6 +19,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { ConnectionInstance } from "@/store/connection";
+import { logger } from "@/lib/logger";
 
 type ProxyRequestBody = {
   connection: Pick<ConnectionInstance, "baseUrl" | "apiKey"> & {
@@ -83,7 +84,10 @@ async function upstreamFetch(
   url: string,
   headers: Record<string, string>,
   method: string,
-  body: unknown
+  body: unknown,
+  reqId: string,
+  start: number,
+  path: string
 ): Promise<NextResponse> {
   let upstreamResponse: Response;
 
@@ -97,11 +101,15 @@ async function upstreamFetch(
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Network error reaching API server";
+    const ms = Date.now() - start;
+    logger.warn(`${method} 502 ${path} (${ms}ms) [${reqId}] — ${message}`);
     return NextResponse.json({ error: message }, { status: 502 });
   }
 
   // 204 No Content — return empty response with same status
   if (upstreamResponse.status === 204) {
+    const ms = Date.now() - start;
+    logger.info(`${method} 204 ${path} (${ms}ms) [${reqId}]`);
     return new NextResponse(null, { status: 204 });
   }
 
@@ -117,6 +125,8 @@ async function upstreamFetch(
     } catch {
       // ignore — use status string
     }
+    const ms = Date.now() - start;
+    logger.warn(`${method} ${upstreamResponse.status} ${path} (${ms}ms) [${reqId}] — ${message}`);
     return NextResponse.json(
       { error: message },
       { status: upstreamResponse.status }
@@ -124,6 +134,8 @@ async function upstreamFetch(
   }
 
   const data: unknown = await upstreamResponse.json();
+  const ms = Date.now() - start;
+  logger.info(`${method} ${upstreamResponse.status} ${path} (${ms}ms) [${reqId}]`);
   return NextResponse.json(data);
 }
 
@@ -143,6 +155,9 @@ export async function POST(request: NextRequest) {
   if (!connection?.baseUrl || !connection?.apiKey) {
     return NextResponse.json({ error: "Missing connection details" }, { status: 400 });
   }
+
+  const reqId = Math.random().toString(36).slice(2, 9);
+  const start = Date.now();
 
   const base = connection.baseUrl.replace(/\/$/, "");
   // Budget-scoped path: /v1/budgets/:syncId/:resource
@@ -167,7 +182,7 @@ export async function POST(request: NextRequest) {
   const prev = serverQueueTails.get(serverKey) ?? Promise.resolve();
 
   const thisRequest = prev.then(() =>
-    upstreamFetch(url, headers, method, body)
+    upstreamFetch(url, headers, method, body, reqId, start, path)
   );
 
   // After the request completes, attempt a budget close if the server returned
@@ -179,6 +194,7 @@ export async function POST(request: NextRequest) {
     async (response) => {
       if (response.status >= 500 && connection.budgetSyncId) {
         await tryCloseBudget(connection.baseUrl, connection.budgetSyncId, connection.apiKey);
+        logger.warn(`budget close attempted after ${response.status} [${reqId}]`);
       }
     },
     async () => {
