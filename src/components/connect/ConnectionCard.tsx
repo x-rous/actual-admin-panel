@@ -62,6 +62,7 @@ export function ConnectionCard({
           disabled={anyBusy}
           onClick={() => onRemove(instance.id)}
           title="Remove"
+          aria-label={`Remove ${instance.label}`}
           className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Trash2 className="h-3.5 w-3.5" />

@@ -242,11 +242,27 @@ export function useConnectForm() {
       (i) => i.baseUrl === validatedUrl && i.budgetSyncId === selected.groupId
     );
     if (existing) {
+      // Use fresh credentials from the current validation in case the key was rotated.
+      const freshInstance: ConnectionInstance = {
+        ...existing,
+        apiKey: validatedKey,
+        ...(encryptionPassword.trim() ? { encryptionPassword: encryptionPassword.trim() } : {}),
+      };
       setConnectStatus({ kind: "busy" });
       try {
-        await reconnect(existing);
+        await reconnect(freshInstance);
       } catch (err) {
-        // reconnect() does not show a toast in this path — show the inline error.
+        const status =
+          err && typeof err === "object" && "status" in err
+            ? (err as { status: number }).status
+            : -1;
+        if (status === 401 || status === 403) {
+          setApiKey("");
+          setSelectedServerId(null);
+          resetStep2();
+          setValidateStatus({ kind: "error", message: parseApiError(err) });
+          return;
+        }
         setConnectStatus({ kind: "error", message: parseApiError(err) });
       }
       return;

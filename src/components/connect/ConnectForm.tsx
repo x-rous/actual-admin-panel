@@ -198,7 +198,7 @@ export function ConnectForm() {
             <button
               key={budget.cloudFileId}
               type="button"
-              disabled={connectBusy}
+              disabled={connectBusy || !!reconnectBusyId}
               onClick={() => {
                 setSelectedCloudFileId(budget.cloudFileId);
                 if (connectStatus.kind === "error") setConnectStatus({ kind: "idle" });
@@ -230,7 +230,7 @@ export function ConnectForm() {
                   )}
                 </span>
                 <span className="text-xs text-muted-foreground font-mono truncate">
-                  Sync ID: {budget.cloudFileId}
+                  Sync ID: {budget.groupId}
                 </span>
                 {serverVersionMap[budget.cloudFileId] && (
                   <span className="text-xs text-muted-foreground font-mono truncate">
@@ -271,7 +271,7 @@ export function ConnectForm() {
 
       <button
         type="button"
-        disabled={connectBusy || !selectedCloudFileId}
+        disabled={connectBusy || !!reconnectBusyId || !selectedCloudFileId}
         onClick={handleConnect}
         className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
       >

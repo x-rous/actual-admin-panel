@@ -39,8 +39,14 @@ export const useSavedServersStore = create<SavedServersState & SavedServersActio
 
       addServer: (params) =>
         set((state) => {
-          const exists = state.servers.some((s) => s.baseUrl === params.baseUrl);
-          if (exists) return state;
+          const existing = state.servers.find((s) => s.baseUrl === params.baseUrl);
+          if (existing) {
+            return {
+              servers: state.servers.map((s) =>
+                s.baseUrl === params.baseUrl ? { ...s, ...params } : s
+              ),
+            };
+          }
           return { servers: [...state.servers, { ...params, id: generateId() }] };
         }),
 

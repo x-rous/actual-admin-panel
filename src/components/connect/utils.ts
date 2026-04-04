@@ -37,7 +37,7 @@ export function parseApiError(err: unknown): string {
       ? ` — ${raw}`
       : "";
 
-  if (status === -1)                    return `Cannot reach the server. Check the URL and that it is running.${detail}`;
+  if (status === -1 || status === 0)    return `Cannot reach the server. Check the URL and that it is running.${detail}`;
   if (status === 401 || status === 403) return "Invalid API Key.";
   if (status === 404)                   return `Not found (HTTP 404)${detail}.`;
   if (status === 502 || status === 503 || status === 504)
