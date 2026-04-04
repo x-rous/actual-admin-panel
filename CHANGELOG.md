@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Rule action templates** — any action row in the rule builder now has a `{}` toggle button to switch between plain text mode and Handlebars template mode; the template string is stored in `action.options.template` and displayed in an amber monospace chip in the rules table (RD-015)
+- **Regex condition hint** — when the `matches` operator is selected on a string condition field, the value input now shows a regex syntax hint below it (RD-014)
+
 ### Changed
 - **Refresh button** — no longer disabled when unsaved changes exist; clicking it now shows a sonner warning toast with a "Discard & Refresh" action so the user can proceed or cancel
 - **Staged state colors** — extracted `--color-staged-new` (green), `--color-staged-updated` (amber), and `--color-staged-deleted` (muted) as semantic `@theme` tokens in `globals.css`; all five table/column files now reference the tokens instead of hardcoded Tailwind color names
