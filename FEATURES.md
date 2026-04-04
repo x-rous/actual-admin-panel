@@ -14,8 +14,9 @@
 - Create, edit, and delete rules with a full condition/action builder
 - Three execution stages: `pre`, `default`, `post`
 - Conditions support AND / OR logic across fields: payee, imported payee, category, account, amount, notes, and more
-- Operators include `is`, `is not`, `contains`, `matches`, `lt`, `lte`, `gt`, `gte`, `oneOf`, and others
+- Operators include `is`, `is not`, `contains`, `matches`, `lt`, `lte`, `gt`, `gte`, `oneOf`, and others; the `matches` operator shows a regex syntax hint
 - Actions include set payee, set category, set account, set amount, set notes, link schedule, and more
+- Action template mode: toggle the `{}` button on any action to enter a Handlebars expression (e.g. `{{regex imported_payee 'foo' 'bar'}}`); templates are displayed in an amber monospace chip in the rules table
 - Merge multiple selected rules into one via a dedicated merge dialog
 - Duplicate a rule with one click
 - Filter the rules list by stage, payee, or category

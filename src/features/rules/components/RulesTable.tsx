@@ -107,6 +107,25 @@ function ActionChip({
   maps: EntityMaps;
 }) {
   const fieldLabel = ACTION_FIELDS[action.field]?.label ?? action.field;
+  const template = action.options?.template;
+
+  if (template !== undefined) {
+    return (
+      <div className="flex items-center gap-1 flex-wrap">
+        {/* Field — violet */}
+        <span className="rounded px-1 py-0.5 text-[11px] font-semibold bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400">
+          {fieldLabel}
+        </span>
+        {/* Arrow */}
+        <span className="text-[11px] text-muted-foreground">→</span>
+        {/* Template — amber chip with monospace text */}
+        <span className="rounded px-1 py-0.5 text-[11px] font-mono bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+          {template || <span className="italic opacity-60">empty template</span>}
+        </span>
+      </div>
+    );
+  }
+
   const valueLabels = resolveValues(action.field, action.value, maps, ACTION_FIELDS);
 
   return (
