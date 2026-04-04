@@ -149,7 +149,6 @@ src/
 | `:latest` | Stable | Production / stable self-hosting (default) |
 | `:<version>` (e.g. `:1.1.0`) | Stable — pinned | When you need a specific version |
 | `:edge` | Unstable — updated on every merge to `main` | Testing latest changes before release |
-| `:edge-<sha>` | Unstable — specific commit | Debugging a specific change |
 
 ---
 
