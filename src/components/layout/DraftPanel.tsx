@@ -76,9 +76,10 @@ function resolvePartValue(
   let resolved = scalar;
   if (def.entity && scalar) {
     resolved =
-      def.entity === "payee"    ? (maps.payees[scalar]?.entity.name    ?? scalar) :
-      def.entity === "category" ? (maps.categories[scalar]?.entity.name ?? scalar) :
-      def.entity === "account"  ? (maps.accounts[scalar]?.entity.name  ?? scalar) :
+      def.entity === "payee"         ? (maps.payees[scalar]?.entity.name         ?? scalar) :
+      def.entity === "category"      ? (maps.categories[scalar]?.entity.name     ?? scalar) :
+      def.entity === "account"       ? (maps.accounts[scalar]?.entity.name       ?? scalar) :
+      def.entity === "categoryGroup" ? (maps.categoryGroups[scalar]?.entity.name ?? scalar) :
       scalar;
   }
 
@@ -97,7 +98,9 @@ function getRuleLabel(rule: Rule, maps: EntityMaps): LabelResult {
     : "(no conditions)";
 
   const actPart = act
-    ? `${ACTION_FIELDS[actField]?.label ?? actField}: ${resolvePartValue(actField, act.value, ACTION_FIELDS, maps)}`
+    ? act.op === "delete-transaction"
+      ? "delete transaction"
+      : `${ACTION_FIELDS[actField]?.label ?? actField}: ${resolvePartValue(actField, act.value, ACTION_FIELDS, maps)}`
     : "(no actions)";
 
   const hasMore = rule.conditions.length > 1 || rule.actions.length > 1;
