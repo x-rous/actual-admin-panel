@@ -310,7 +310,7 @@ export function TagsTable({ highlightedId }: TagsTableProps) {
                       {/* Name */}
                       <td
                         className={cn(
-                          "cursor-default px-2 py-0.5",
+                          "cursor-default px-2 py-1.5",
                           !isDeleted && !isEditingName && "hover:bg-muted/40",
                         )}
                         onClick={() => !isDeleted && !isEditingName && startEditing(entity.id, "name", entity.name)}
@@ -330,7 +330,7 @@ export function TagsTable({ highlightedId }: TagsTableProps) {
                           return (
                             <span
                               className={cn(
-                                "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
+                                "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium",
                                 isDeleted && "opacity-60",
                                 isDuplicate && "ring-2 ring-amber-400",
                               )}

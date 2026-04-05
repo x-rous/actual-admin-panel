@@ -26,7 +26,7 @@ export function TagsView() {
 
   function handleAddTag() {
     pushUndo();
-    stageNew("tags", { id: generateId(), name: "" });
+    stageNew("tags", { id: generateId(), name: "NewTag" });
   }
 
   function handleExportCsv() {

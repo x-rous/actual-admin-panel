@@ -26,7 +26,7 @@ export function PayeesView() {
     pushUndo();
     stageNew("payees", {
       id: generateId(),
-      name: "",
+      name: "New Payee",
     });
   }
 
