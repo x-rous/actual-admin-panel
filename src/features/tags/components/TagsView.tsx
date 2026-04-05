@@ -8,35 +8,34 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { CSV_MAX_BYTES } from "@/lib/csv";
 import { useStagedStore } from "@/store/staged";
 import { generateId } from "@/lib/uuid";
-import { usePayees } from "../hooks/usePayees";
-import { PayeesTable } from "./PayeesTable";
-import { exportPayeesToCsv } from "../csv/payeesCsvExport";
-import { importPayeesFromCsv } from "../csv/payeesCsvImport";
+import { useTags } from "../hooks/useTags";
+import { TagsTable } from "./TagsTable";
+import { exportTagsToCsv } from "../csv/tagsCsvExport";
+import { importTagsFromCsv } from "../csv/tagsCsvImport";
 
-export function PayeesView() {
+export function TagsView() {
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  const { isLoading, isError, error, refetch } = usePayees();
+  const { isLoading, isError, error, refetch } = useTags();
 
-  const staged = useStagedStore((s) => s.payees);
-  const stageNew = useStagedStore((s) => s.stageNew);
-  const pushUndo = useStagedStore((s) => s.pushUndo);
+  const stagedTags = useStagedStore((s) => s.tags);
+  const stageNew   = useStagedStore((s) => s.stageNew);
+  const pushUndo   = useStagedStore((s) => s.pushUndo);
 
-  function handleAddPayee() {
+  const tagCount = Object.values(stagedTags).filter((s) => !s.isDeleted).length;
+
+  function handleAddTag() {
     pushUndo();
-    stageNew("payees", {
-      id: generateId(),
-      name: "New Payee",
-    });
+    stageNew("tags", { id: generateId(), name: "NewTag" });
   }
 
   function handleExportCsv() {
-    const csv = exportPayeesToCsv(staged);
+    const csv = exportTagsToCsv(stagedTags);
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "payees.csv";
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = "tags.csv";
     try {
       a.click();
     } finally {
@@ -59,38 +58,38 @@ export function PayeesView() {
       const text = event.target?.result;
       if (typeof text !== "string") return;
 
-      const result = importPayeesFromCsv(text);
+      const result = importTagsFromCsv(text);
       if ("error" in result) { toast.error(result.error); return; }
 
       pushUndo();
-      for (const payee of result.payees) {
-        stageNew("payees", { id: generateId(), ...payee });
+      for (const tag of result.tags) {
+        stageNew("tags", { id: generateId(), ...tag });
       }
 
-      const imported = result.payees.length;
+      const imported = result.tags.length;
       if (imported === 0) {
-        toast.warning("No valid rows found in CSV.");
-      } else if (result.skipped > 0) {
-        toast.success(`Imported ${imported} payee${imported !== 1 ? "s" : ""} (${result.skipped} skipped — empty name).`);
+        toast.warning(
+          result.skipped > 0
+            ? `No tags imported — ${result.skipped} row(s) skipped.`
+            : "No valid tags found in CSV."
+        );
       } else {
-        toast.success(`Imported ${imported} payee${imported !== 1 ? "s" : ""}.`);
+        const suffix = result.skipped > 0 ? ` (${result.skipped} skipped)` : "";
+        toast.success(`Imported ${imported} tag${imported !== 1 ? "s" : ""}${suffix}.`);
       }
     };
-
     reader.readAsText(file, "utf-8");
   }
 
-  const totalCount = Object.keys(staged).length;
-  const regularCount = Object.values(staged).filter((s) => !s.entity.transferAccountId && !s.isDeleted).length;
-
   return (
     <PageLayout
-      title="Payees"
-      count={`${regularCount} regular · ${totalCount} total`}
+      title="Tags"
+      count={`${tagCount} tag${tagCount !== 1 ? "s" : ""}`}
       isLoading={isLoading}
       isError={isError}
       error={error}
       onRetry={refetch}
+      scrollManaged
       actions={
         <>
           <input
@@ -108,14 +107,14 @@ export function PayeesView() {
             <Upload />
             Export
           </Button>
-          <Button size="sm" onClick={handleAddPayee}>
+          <Button size="sm" onClick={handleAddTag}>
             <Plus />
-            Add Payee
+            Add Tag
           </Button>
         </>
       }
     >
-      <PayeesTable />
+      <TagsTable />
     </PageLayout>
   );
 }
