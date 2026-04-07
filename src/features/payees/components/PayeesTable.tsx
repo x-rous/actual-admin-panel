@@ -32,6 +32,8 @@ type NavigableCol = (typeof NAVIGABLE_COLS)[number];
 type CellId = { rowId: string; colId: NavigableCol };
 type PayeeRow = StagedEntity<Payee>;
 type ConfirmState = { title: string; message: string; onConfirm: () => void };
+type MergeCandidate = { id: string; name: string };
+type MergeState = { candidates: MergeCandidate[]; targetId: string };
 
 // ─── Sort helpers ──────────────────────────────────────────────────────────────
 
@@ -85,6 +87,8 @@ export function PayeesTable() {
   const { selectedIds, toggleSelect: toggleSelectRow, toggleSelectAll: _toggleSelectAll, clearSelection } = useTableSelection();
   const [confirmDialog, setConfirmDialog] = useState<ConfirmState | null>(null);
 
+  const [mergeDialog, setMergeDialog] = useState<MergeState | null>(null);
+
   const containerRef  = useRef<HTMLDivElement>(null);
   const router        = useRouter();
   const highlightedId = useHighlight();
@@ -98,6 +102,7 @@ export function PayeesTable() {
   const revertEntity = useStagedStore((s) => s.revertEntity);
   const clearSaveError = useStagedStore((s) => s.clearSaveError);
   const pushUndo = useStagedStore((s) => s.pushUndo);
+  const stagePayeeMerge = useStagedStore((s) => s.stagePayeeMerge);
 
   // ── Rules reference count per payee ──────────────────────────────────────────
   const payeeRuleCount = useMemo(() => {
@@ -308,6 +313,29 @@ export function PayeesTable() {
     }
   }
 
+  function handleMerge() {
+    // Iterate selectedIds in insertion order (click order) — first-clicked payee
+    // is pre-selected as the target; the user can override in the dialog.
+    const selectedRegular = [...selectedIds]
+      .map((id) => staged[id])
+      .filter((s): s is NonNullable<typeof s> =>
+        !!s && !s.isDeleted && !s.isNew && !s.entity.transferAccountId
+      );
+    if (selectedRegular.length < 2) return;
+    setMergeDialog({
+      candidates: selectedRegular.map((r) => ({ id: r.entity.id, name: r.entity.name })),
+      targetId:   selectedRegular[0].entity.id,
+    });
+  }
+
+  function confirmMerge(state: MergeState) {
+    const mergeIds = state.candidates.filter((c) => c.id !== state.targetId).map((c) => c.id);
+    pushUndo();
+    stagePayeeMerge(state.targetId, mergeIds);
+    clearSelection();
+    setMergeDialog(null);
+  }
+
   // ── Paste from Excel / Sheets ─────────────────────────────────────────────────
   function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
     if (editingCell) return;
@@ -376,6 +404,11 @@ export function PayeesTable() {
   const totalCount = Object.keys(staged).length;
   const canFillDown = selectedIds.size >= 2 && selectedCell !== null;
   const activeSelectedCount = [...selectedIds].filter((id) => staged[id] && !staged[id].isDeleted).length;
+  // Merge requires 2+ non-deleted regular (non-transfer) payees selected
+  const mergeableCount = [...selectedIds].filter(
+    (id) => staged[id] && !staged[id].isDeleted && !staged[id].entity.transferAccountId && !staged[id].isNew
+  ).length;
+  const canMerge = mergeableCount >= 2;
 
   return (
     <>
@@ -385,8 +418,9 @@ export function PayeesTable() {
           typeFilter={typeFilter} onTypeChange={setTypeFilter}
           rulesFilter={rulesFilter} onRulesFilterChange={setRulesFilter}
           filteredCount={rows.length} totalCount={totalCount}
-          selectedCount={activeSelectedCount} canFillDown={canFillDown}
+          selectedCount={activeSelectedCount} canFillDown={canFillDown} canMerge={canMerge}
           onFillDown={handleFillDown}
+          onMerge={handleMerge}
           onBulkDelete={handleBulkDelete}
           onDeselect={() => clearSelection()}
         />
@@ -641,6 +675,65 @@ export function PayeesTable() {
               onClick={() => { confirmDialog?.onConfirm(); setConfirmDialog(null); }}
             >
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Merge dialog */}
+      <Dialog open={mergeDialog !== null} onOpenChange={(open) => { if (!open) setMergeDialog(null); }}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Merge payees</DialogTitle>
+            <DialogDescription>
+              Select the payee to keep. The others will be merged into it and removed.
+              All transactions and rules will be updated automatically.
+              This change is staged and can be undone until you save.
+            </DialogDescription>
+          </DialogHeader>
+
+          {mergeDialog && (
+            <div className="flex flex-col gap-1 py-1">
+              {mergeDialog.candidates.map((c, i) => {
+                const isTarget = c.id === mergeDialog.targetId;
+                return (
+                  <label
+                    key={c.id}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 text-sm transition-colors",
+                      isTarget
+                        ? "border-primary bg-primary/5 font-medium"
+                        : "border-border hover:bg-muted/40"
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="merge-target"
+                      value={c.id}
+                      checked={isTarget}
+                      onChange={() => setMergeDialog({ ...mergeDialog, targetId: c.id })}
+                      className="accent-primary"
+                    />
+                    <span className="flex-1 truncate">{c.name || <em className="text-muted-foreground">empty name</em>}</span>
+                    {i === 0 && !isTarget && (
+                      <span className="text-[10px] text-muted-foreground">first selected</span>
+                    )}
+                    {isTarget && (
+                      <span className="text-[10px] font-medium text-primary">keep</span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMergeDialog(null)}>Cancel</Button>
+            <Button
+              variant="default"
+              onClick={() => { if (mergeDialog) confirmMerge(mergeDialog); }}
+            >
+              Merge
             </Button>
           </DialogFooter>
         </DialogContent>
