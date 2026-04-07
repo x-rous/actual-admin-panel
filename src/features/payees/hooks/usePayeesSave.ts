@@ -103,9 +103,11 @@ export function usePayeesSave() {
     }
 
     // ── Merges (sequential — each merge is a single API call) ─────────────────
+    const succeededMergeTargetIds: string[] = [];
     for (const { targetId, mergeIds } of pendingPayeeMerges) {
       try {
         await mergePayees(connection, targetId, mergeIds);
+        succeededMergeTargetIds.push(targetId);
         for (const id of mergeIds) {
           succeeded.push({ status: "success", id });
         }
@@ -119,7 +121,8 @@ export function usePayeesSave() {
     setIsSaving(false);
 
     const store = useStagedStore.getState();
-    store.clearPendingPayeeMerges();
+    // Only clear merges that succeeded — failed merges remain queued for retry
+    store.clearPendingPayeeMerges(succeededMergeTargetIds);
 
     // Remove temp-UUID staged entries for successful creates before refetch.
     if (succeededCreateIds.size > 0) {

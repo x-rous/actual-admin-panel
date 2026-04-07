@@ -32,7 +32,8 @@ type NavigableCol = (typeof NAVIGABLE_COLS)[number];
 type CellId = { rowId: string; colId: NavigableCol };
 type PayeeRow = StagedEntity<Payee>;
 type ConfirmState = { title: string; message: string; onConfirm: () => void };
-type MergeState = { targetName: string; mergeNames: string[]; targetId: string; mergeIds: string[] };
+type MergeCandidate = { id: string; name: string };
+type MergeState = { candidates: MergeCandidate[]; targetId: string };
 
 // ─── Sort helpers ──────────────────────────────────────────────────────────────
 
@@ -313,26 +314,24 @@ export function PayeesTable() {
   }
 
   function handleMerge() {
-    // Iterate selectedIds in insertion order (click order) so the first-clicked payee
-    // is always the merge target regardless of current table sort/display order.
+    // Iterate selectedIds in insertion order (click order) — first-clicked payee
+    // is pre-selected as the target; the user can override in the dialog.
     const selectedRegular = [...selectedIds]
       .map((id) => staged[id])
       .filter((s): s is NonNullable<typeof s> =>
         !!s && !s.isDeleted && !s.isNew && !s.entity.transferAccountId
       );
     if (selectedRegular.length < 2) return;
-    const [target, ...rest] = selectedRegular;
     setMergeDialog({
-      targetName: target.entity.name,
-      mergeNames: rest.map((r) => r.entity.name),
-      targetId:   target.entity.id,
-      mergeIds:   rest.map((r) => r.entity.id),
+      candidates: selectedRegular.map((r) => ({ id: r.entity.id, name: r.entity.name })),
+      targetId:   selectedRegular[0].entity.id,
     });
   }
 
   function confirmMerge(state: MergeState) {
+    const mergeIds = state.candidates.filter((c) => c.id !== state.targetId).map((c) => c.id);
     pushUndo();
-    stagePayeeMerge(state.targetId, state.mergeIds);
+    stagePayeeMerge(state.targetId, mergeIds);
     clearSelection();
     setMergeDialog(null);
   }
@@ -685,14 +684,49 @@ export function PayeesTable() {
       <Dialog open={mergeDialog !== null} onOpenChange={(open) => { if (!open) setMergeDialog(null); }}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Merge payees into &quot;{mergeDialog?.targetName}&quot;?</DialogTitle>
+            <DialogTitle>Merge payees</DialogTitle>
             <DialogDescription>
-              The following payee{mergeDialog && mergeDialog.mergeIds.length !== 1 ? "s" : ""} will be merged into &quot;{mergeDialog?.targetName}&quot; and removed:{" "}
-              <strong>{mergeDialog?.mergeNames.join(", ")}</strong>.
-              All transactions and rules referencing {mergeDialog && mergeDialog.mergeIds.length !== 1 ? "them" : "it"} will be updated automatically.
-              This action cannot be undone.
+              Select the payee to keep. The others will be merged into it and removed.
+              All transactions and rules will be updated automatically.
+              This change is staged and can be undone until you save.
             </DialogDescription>
           </DialogHeader>
+
+          {mergeDialog && (
+            <div className="flex flex-col gap-1 py-1">
+              {mergeDialog.candidates.map((c, i) => {
+                const isTarget = c.id === mergeDialog.targetId;
+                return (
+                  <label
+                    key={c.id}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 text-sm transition-colors",
+                      isTarget
+                        ? "border-primary bg-primary/5 font-medium"
+                        : "border-border hover:bg-muted/40"
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="merge-target"
+                      value={c.id}
+                      checked={isTarget}
+                      onChange={() => setMergeDialog({ ...mergeDialog, targetId: c.id })}
+                      className="accent-primary"
+                    />
+                    <span className="flex-1 truncate">{c.name || <em className="text-muted-foreground">empty name</em>}</span>
+                    {i === 0 && !isTarget && (
+                      <span className="text-[10px] text-muted-foreground">first selected</span>
+                    )}
+                    {isTarget && (
+                      <span className="text-[10px] font-medium text-primary">keep</span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setMergeDialog(null)}>Cancel</Button>
             <Button

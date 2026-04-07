@@ -103,7 +103,15 @@ type StagedStoreState = {
   pendingPayeeMerges: Array<{ targetId: string; mergeIds: string[] }>;
 };
 
-type StagedStoreSnapshot = Omit<StagedStoreState, "undoStack" | "redoStack" | "mergeDependencies" | "pendingPayeeMerges">;
+// pendingPayeeMerges is included in snapshots so undo/redo correctly restores
+// and re-queues staged merges without manual pruning.
+// mergeDependencies is still excluded — it is save-order metadata, not user-visible state.
+type StagedStoreSnapshot = Omit<StagedStoreState, "undoStack" | "redoStack" | "mergeDependencies">;
+
+// EntityKey must be defined explicitly (not derived from StagedStoreSnapshot) so that
+// the generic entity actions (stageNew, stageUpdate, etc.) do not accidentally accept
+// pendingPayeeMerges as a valid entity-map key.
+type EntityKey = "accounts" | "payees" | "categoryGroups" | "categories" | "rules" | "schedules" | "tags";
 
 type StagedStoreActions = {
   /** Load the server snapshot for an entity type, replacing any existing staged data */
@@ -168,11 +176,10 @@ type StagedStoreActions = {
    */
   stagePayeeMerge: (targetId: string, mergeIds: string[]) => void;
 
-  /** Remove all pending payee merges (called after a successful save) */
-  clearPendingPayeeMerges: () => void;
+  /** Remove pending payee merges whose targetIds are in the succeeded list, leaving failed merges queued for retry */
+  clearPendingPayeeMerges: (succeededTargetIds: string[]) => void;
 };
 
-type EntityKey = keyof StagedStoreSnapshot;
 type EntityTypeMap = {
   accounts: Account;
   payees: Payee;
@@ -193,6 +200,7 @@ const emptySnapshot = (): StagedStoreSnapshot => ({
   rules: {},
   schedules: {},
   tags: {},
+  pendingPayeeMerges: [],
 });
 
 function snapshot(state: StagedStoreState): StagedStoreSnapshot {
@@ -204,6 +212,7 @@ function snapshot(state: StagedStoreState): StagedStoreSnapshot {
     rules: state.rules,
     schedules: state.schedules,
     tags: state.tags,
+    pendingPayeeMerges: state.pendingPayeeMerges,
   };
 }
 
@@ -401,9 +410,19 @@ export const useStagedStore = create<StagedStoreState & StagedStoreActions>((set
     })),
 
   revertEntity: (entityType, id) =>
-    set((state) => ({
-      [entityType]: applyRestore(state[entityType] as StagedMap<BaseEntity>, id),
-    })),
+    set((state) => {
+      const result: Partial<StagedStoreState> = {
+        [entityType]: applyRestore(state[entityType] as StagedMap<BaseEntity>, id),
+      };
+      // When a merged-away payee is restored, remove it from any pending merge
+      // queues so Save does not re-delete it via the merge API.
+      if (entityType === "payees") {
+        result.pendingPayeeMerges = state.pendingPayeeMerges
+          .map((m) => ({ ...m, mergeIds: m.mergeIds.filter((mId) => mId !== id) }))
+          .filter((m) => m.mergeIds.length > 0);
+      }
+      return result;
+    }),
 
   setSaveErrors: (entityType, errors) =>
     set((state) => {
@@ -428,7 +447,7 @@ export const useStagedStore = create<StagedStoreState & StagedStoreActions>((set
       return { [entityType]: map };
     }),
 
-  discardAll: () => set({ ...emptySnapshot(), undoStack: [], redoStack: [], mergeDependencies: {}, pendingPayeeMerges: [] }),
+  discardAll: () => set({ ...emptySnapshot(), undoStack: [], redoStack: [], mergeDependencies: {} }),
 
   clearHistory: () => set({ undoStack: [], redoStack: [] }),
 
@@ -456,7 +475,12 @@ export const useStagedStore = create<StagedStoreState & StagedStoreActions>((set
       };
     }),
 
-  clearPendingPayeeMerges: () => set({ pendingPayeeMerges: [] }),
+  clearPendingPayeeMerges: (succeededTargetIds) =>
+    set((state) => ({
+      pendingPayeeMerges: state.pendingPayeeMerges.filter(
+        (m) => !succeededTargetIds.includes(m.targetId)
+      ),
+    })),
 
   pushUndo: () =>
     set((state) => ({
@@ -479,17 +503,12 @@ export const useStagedStore = create<StagedStoreState & StagedStoreActions>((set
         if (!prev.rules[newRuleId]) delete nextMergeDeps[newRuleId];
       }
 
-      // Prune pending payee merges whose merged IDs are no longer deleted in the reverted snapshot
-      const nextPendingMerges = state.pendingPayeeMerges.filter((m) =>
-        m.mergeIds.every((id) => prev.payees[id]?.isDeleted)
-      );
-
       return {
         ...prev,
         undoStack: stack,
         redoStack: [snapshot(state), ...state.redoStack],
         mergeDependencies: nextMergeDeps,
-        pendingPayeeMerges: nextPendingMerges,
+        // pendingPayeeMerges is restored from the snapshot (prev) — no manual pruning needed
       };
     }),
 
@@ -504,17 +523,12 @@ export const useStagedStore = create<StagedStoreState & StagedStoreActions>((set
         if (!next.rules[newRuleId]) delete nextMergeDeps[newRuleId];
       }
 
-      // Prune pending payee merges whose merged IDs are no longer deleted in the redo target
-      const nextPendingMerges = state.pendingPayeeMerges.filter((m) =>
-        m.mergeIds.every((id) => next.payees[id]?.isDeleted)
-      );
-
       return {
         ...next,
         undoStack: [...state.undoStack, snapshot(state)],
         redoStack: rest,
         mergeDependencies: nextMergeDeps,
-        pendingPayeeMerges: nextPendingMerges,
+        // pendingPayeeMerges is restored from the snapshot (next) — no manual pruning needed
       };
     }),
 }));
