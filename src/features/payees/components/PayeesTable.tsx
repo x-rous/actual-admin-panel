@@ -231,9 +231,12 @@ export function PayeesTable() {
   }
 
   function handleNameDone(rowId: string, value: string, action: DoneAction) {
-    if (action !== "cancel" && value !== staged[rowId]?.entity.name) {
-      pushUndo();
-      stageUpdate("payees", rowId, { name: value });
+    if (action !== "cancel") {
+      const trimmed = value.trim();
+      if (trimmed !== staged[rowId]?.entity.name) {
+        pushUndo();
+        stageUpdate("payees", rowId, { name: trimmed });
+      }
     }
     commitEdit({ rowId, colId: "name" });
     if (action === "down") moveFrom(rowId, "name", 1, 0);
@@ -376,7 +379,7 @@ export function PayeesTable() {
 
   return (
     <>
-      <div ref={containerRef} className="flex flex-col outline-none" onKeyDown={handleKeyDown} onPaste={handlePaste} tabIndex={-1}>
+      <div ref={containerRef} className="flex min-h-0 flex-1 flex-col overflow-hidden outline-none" onKeyDown={handleKeyDown} onPaste={handlePaste} tabIndex={-1}>
         <FilterBar
           search={search} onSearchChange={setSearch}
           typeFilter={typeFilter} onTypeChange={setTypeFilter}
@@ -388,6 +391,7 @@ export function PayeesTable() {
           onDeselect={() => clearSelection()}
         />
 
+        <div className="min-h-0 flex-1 overflow-auto">
         {rows.length === 0 ? (
           <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
             {search || typeFilter !== "all" || rulesFilter !== "all"
@@ -618,6 +622,7 @@ export function PayeesTable() {
               </tbody>
           </table>
         )}
+        </div>
 
         <BulkAddBar bulkCount={bulkCount} onBulkCountChange={setBulkCount} onAdd={(n) => addRows(n, true)} />
       </div>

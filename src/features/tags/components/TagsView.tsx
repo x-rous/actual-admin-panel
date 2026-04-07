@@ -89,6 +89,7 @@ export function TagsView() {
       isError={isError}
       error={error}
       onRetry={refetch}
+      scrollManaged
       actions={
         <>
           <input

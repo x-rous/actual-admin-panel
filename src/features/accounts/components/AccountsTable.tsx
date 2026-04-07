@@ -336,7 +336,7 @@ export function AccountsTable() {
 
   return (
     <>
-      <div ref={containerRef} className="flex flex-col outline-none" onKeyDown={handleKeyDown} onPaste={handlePaste} tabIndex={-1}>
+      <div ref={containerRef} className="flex min-h-0 flex-1 flex-col overflow-hidden outline-none" onKeyDown={handleKeyDown} onPaste={handlePaste} tabIndex={-1}>
         <FilterBar
           search={search} onSearchChange={setSearch}
           statusFilter={statusFilter} onStatusChange={setStatusFilter}
@@ -350,6 +350,7 @@ export function AccountsTable() {
           onDeselect={() => clearSelection()}
         />
 
+        <div className="min-h-0 flex-1 overflow-auto">
         {rows.length === 0 ? (
           <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
             {search || statusFilter !== "all" || budgetFilter !== "all"
@@ -564,6 +565,7 @@ export function AccountsTable() {
               </tbody>
           </table>
         )}
+        </div>
 
         <BulkAddBar bulkCount={bulkCount} onBulkCountChange={setBulkCount} onAdd={(n) => addRows(n, true)} />
       </div>

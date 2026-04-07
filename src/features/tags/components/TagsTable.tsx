@@ -150,7 +150,7 @@ export function TagsTable() {
     const q = search.trim().toLowerCase();
     return Object.values(stagedTags)
       .filter((s) => {
-        if (q && !s.entity.name.toLowerCase().includes(q)) return false;
+        if (q && !s.entity.name.toLowerCase().includes(q) && !(s.entity.description?.toLowerCase().includes(q) ?? false)) return false;
         if (colorFilter === "has_color" && !s.entity.color) return false;
         if (colorFilter === "no_color"  &&  s.entity.color) return false;
         return true;
@@ -169,6 +169,16 @@ export function TagsTable() {
       if (n) counts.set(n, (counts.get(n) ?? 0) + 1);
     }
     return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n));
+  }, [stagedTags]);
+
+  // ── Color filter counts (all non-deleted, unaffected by search) ──────────
+  const colorCounts = useMemo(() => {
+    const all = Object.values(stagedTags).filter((s) => !s.isDeleted);
+    return {
+      all:       all.length,
+      has_color: all.filter((s) =>  !!s.entity.color).length,
+      no_color:  all.filter((s) => !s.entity.color).length,
+    };
   }, [stagedTags]);
 
   // ── Select-all helpers ────────────────────────────────────────────────────
@@ -348,7 +358,7 @@ export function TagsTable() {
     <>
       <div
         ref={containerRef}
-        className="flex flex-col outline-none"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden outline-none"
         onKeyDown={handleKeyDown}
         tabIndex={-1}
       >
@@ -357,11 +367,13 @@ export function TagsTable() {
           colorFilter={colorFilter} onColorFilterChange={setColorFilter}
           filteredCount={rows.filter((r) => !r.isDeleted).length}
           totalCount={totalCount}
+          colorCounts={colorCounts}
           selectedCount={activeSelected}
           onBulkDelete={handleBulkDelete}
           onDeselect={clearSelection}
         />
 
+        <div className="min-h-0 flex-1 overflow-auto">
         {rows.length === 0 ? (
           <div className="flex flex-1 items-center justify-center py-16 text-sm text-muted-foreground">
             {search || colorFilter !== "all"
@@ -583,6 +595,7 @@ export function TagsTable() {
             </tbody>
           </table>
         )}
+        </div>
 
         <BulkAddBar bulkCount={bulkCount} onBulkCountChange={setBulkCount} onAdd={(n) => addRows(n, true)} />
       </div>

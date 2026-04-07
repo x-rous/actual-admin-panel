@@ -4,6 +4,14 @@ import { CONDITION_FIELDS, ACTION_FIELDS, ACTION_OPS } from "../utils/ruleFields
 import { valueToString } from "../utils/rulePreview";
 import type { EntityMaps } from "../utils/rulePreview";
 import type { ConditionOrAction } from "@/types/entities";
+import { cn } from "@/lib/utils";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** True when the field resolves to a named entity (payee, category, account, group). */
+function isEntityField(field: string, fieldDefs: typeof CONDITION_FIELDS | typeof ACTION_FIELDS): boolean {
+  return !!fieldDefs[field]?.entity;
+}
 
 // ─── Entity resolution ────────────────────────────────────────────────────────
 
@@ -59,6 +67,7 @@ export function ConditionChip({
   const field = condition.field ?? "";
   const fieldLabel = CONDITION_FIELDS[field]?.label ?? field;
   const valueLabels = resolveValues(field, condition.value, maps, CONDITION_FIELDS);
+  const isEntity = isEntityField(field, CONDITION_FIELDS);
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
@@ -68,11 +77,16 @@ export function ConditionChip({
       </span>
       {/* Op — muted */}
       <span className="text-[11px] text-muted-foreground">{condition.op}</span>
-      {/* Values — each as its own emerald chip */}
+      {/* Values — sky for entity references, emerald for plain strings */}
       {valueLabels.map((label, i) => (
-        <span key={i} className="rounded px-1 py-0.5 text-[11px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+        <span key={i} className={cn(
+          "rounded px-1 py-0.5 text-[11px] font-medium",
+          isEntity
+            ? "bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400"
+            : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+        )}>
           {label}
-          {i < valueLabels.length - 1 && <span className="text-emerald-500 ml-0.5">,</span>}
+          {i < valueLabels.length - 1 && <span className={isEntity ? "text-sky-500 ml-0.5" : "text-emerald-500 ml-0.5"}>,</span>}
         </span>
       ))}
     </div>
@@ -148,6 +162,7 @@ export function ActionChip({
   } else {
     valueLabels = resolveValues(field, action.value, maps, ACTION_FIELDS);
   }
+  const isEntity = isEntityField(field, ACTION_FIELDS);
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
@@ -159,9 +174,14 @@ export function ActionChip({
       </span>
       <span className="text-[11px] text-muted-foreground">→</span>
       {valueLabels.map((label, i) => (
-        <span key={i} className="rounded px-1 py-0.5 text-[11px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+        <span key={i} className={cn(
+          "rounded px-1 py-0.5 text-[11px] font-medium",
+          isEntity
+            ? "bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400"
+            : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+        )}>
           {label}
-          {i < valueLabels.length - 1 && <span className="text-emerald-500 ml-0.5">,</span>}
+          {i < valueLabels.length - 1 && <span className={isEntity ? "text-sky-500 ml-0.5" : "text-emerald-500 ml-0.5"}>,</span>}
         </span>
       ))}
     </div>

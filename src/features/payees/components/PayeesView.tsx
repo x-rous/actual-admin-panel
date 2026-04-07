@@ -91,6 +91,7 @@ export function PayeesView() {
       isError={isError}
       error={error}
       onRetry={refetch}
+      scrollManaged
       actions={
         <>
           <input

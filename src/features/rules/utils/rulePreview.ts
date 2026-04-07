@@ -35,6 +35,22 @@ function resolveValue(
   fieldDefs: Record<string, { entity?: string }>
 ): string {
   const def = fieldDefs[field];
+
+  // For array values with an entity field, resolve each ID individually before
+  // joining — valueToString() would join the raw UUIDs first, making map lookups fail.
+  if (Array.isArray(value) && def?.entity) {
+    return (value as string[])
+      .filter(Boolean)
+      .map((id) => {
+        if (def.entity === "payee")         return maps.payees[id]?.entity.name         ?? id;
+        if (def.entity === "category")      return maps.categories[id]?.entity.name     ?? id;
+        if (def.entity === "account")       return maps.accounts[id]?.entity.name       ?? id;
+        if (def.entity === "categoryGroup") return maps.categoryGroups[id]?.entity.name ?? id;
+        return id;
+      })
+      .join(", ");
+  }
+
   const val = valueToString(value);
 
   if (def?.entity === "payee") {
@@ -60,7 +76,9 @@ function summariseCondition(c: ConditionOrAction, maps: EntityMaps): string {
   const field = c.field ?? "";
   const fieldLabel = CONDITION_FIELDS[field]?.label ?? field;
   const valueLabel = resolveValue(field, c.value, maps, CONDITION_FIELDS);
-  return `${fieldLabel} ${c.op} "${valueLabel}"`;
+  // Array values (e.g. oneOf) are already joined — no surrounding quotes needed.
+  const wrapped = Array.isArray(c.value) ? valueLabel : `"${valueLabel}"`;
+  return `${fieldLabel} ${c.op} ${wrapped}`;
 }
 
 function summariseAction(a: ConditionOrAction, maps: EntityMaps): string {
@@ -79,7 +97,8 @@ function summariseAction(a: ConditionOrAction, maps: EntityMaps): string {
   }
 
   const valueLabel = resolveValue(field, a.value, maps, ACTION_FIELDS);
-  return `set ${fieldLabel} → "${valueLabel}"`;
+  const wrapped = Array.isArray(a.value) ? valueLabel : `"${valueLabel}"`;
+  return `set ${fieldLabel} → ${wrapped}`;
 }
 
 export function rulePreview(rule: Rule, maps: EntityMaps): string {

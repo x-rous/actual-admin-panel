@@ -103,6 +103,7 @@ export function CategoriesView() {
       isError={isError}
       error={error}
       onRetry={refetch}
+      scrollManaged
       actions={
         <>
           <Button
