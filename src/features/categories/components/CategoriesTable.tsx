@@ -675,7 +675,7 @@ export function CategoriesTable({
 
   return (
     <>
-      <div ref={containerRef} className="flex flex-col outline-none" onKeyDown={handleKeyDown} tabIndex={-1}>
+      <div ref={containerRef} className="flex min-h-0 flex-1 flex-col overflow-hidden outline-none" onKeyDown={handleKeyDown} tabIndex={-1}>
         <FilterBar
           search={search} onSearchChange={setSearch}
           visibilityFilter={visibilityFilter} onVisibilityChange={setVisibilityFilter}
@@ -686,6 +686,7 @@ export function CategoriesTable({
           onDeselect={() => clearSelection()}
         />
 
+        <div className="min-h-0 flex-1 overflow-auto">
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-background">
               <tr className="border-b border-border">
@@ -804,6 +805,7 @@ export function CategoriesTable({
               )}
             </tbody>
         </table>
+        </div>
       </div>
 
       {/* Confirm dialog */}
