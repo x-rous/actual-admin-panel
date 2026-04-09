@@ -264,23 +264,17 @@ Response:
         }]
 ```
 
-**Files to update:**
-- `src/lib/api/accounts.ts` — add `getAccountBalance(connection, accountId): Promise<number>`
-- `src/features/accounts/hooks/useAccounts.ts` — add `useAccountBalance(accountId)` hook using `useQuery`; key: `["accountBalance", budgetSyncId, accountId]`
-- `src/features/accounts/components/AccountsTable.tsx` — add Balance column; fetch lazily per row using `useAccountBalance`
+**Shipped implementation:**
+- `src/lib/api/accounts.ts` — `getAccountBalances(connection): Promise<Map<accountId, balance>>` fetches all account balances in a single aggregated ActualQL query
+- `src/features/accounts/hooks/useAccountBalances.ts` — shared hook that wraps the aggregated query with `useQuery`; key: `["accountBalances", budgetSyncId]`; `staleTime: 60_000` (1 min — intentional override of the global `Infinity` default, since balances change frequently)
+- `src/features/accounts/components/AccountsTable.tsx` — Balance column uses the shared `useAccountBalances` hook; shows a `-` placeholder while loading or on error; negative balances highlighted in red
 
 **Implementation notes:**
 
-- Fetch balance lazily `useQuery` calls with `staleTime: 60_000` (1 min — intentional override of the global `Infinity` default, since balances change frequently). Do not block the page load — show a `-` placeholder while loading and on error.
+- The shipped approach uses a **single aggregated query** for all accounts rather than per-account lazy fetches — this avoids the N+1 query problem and improves performance.
 - Do NOT add balance history (charts, date ranges) — that's transactional data, out of scope.
-- This balance data feeds directly into **RD-016** (account close safety warning). Build it as a shared hook so RD-016 can reuse it.
-- Amount is in cents (integer). Divide by 100 and format as currency. Until RD-012 (currency symbol) is done, format as a plain number with 2 decimal places.Example post-processing:
-```
-const rows = response.data.map((row) => ({
-  ...row,
-  balance: row.balance / 100,
-}));
-```
+- This balance data feeds directly into **RD-016** (account close safety warning). The `useAccountBalances` hook is built as a shared hook so RD-016 can reuse it.
+- Amount is in cents (integer). The API function divides by 100 and returns whole currency units. Until RD-012 (currency symbol) is done, format as a plain number with 2 decimal places.
 
 ---
 

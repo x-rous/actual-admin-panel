@@ -36,7 +36,7 @@
 - Inline editing: double-click, Enter, or F2 to edit; Escape to cancel
 - Bulk select with bulk close, reopen, and delete
 - Filter by name, status (open / closed / all), budget type (on / off / all), and whether an account has associated rules
-- Sort by name, status, or budget type
+- Sort by name, status, or budget type; staged (unsaved) rows are kept at the top of the list regardless of selected sort until saved
 - Paste tab-separated data directly from Excel or Google Sheets
 - CSV import and export
 - Duplicate name detection with visual warning
