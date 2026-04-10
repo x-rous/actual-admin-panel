@@ -379,13 +379,15 @@ export function CategoriesTable({
       }
     }
 
-    // All category IDs affected (children of selected groups + directly selected cats)
+    // All category IDs affected (children of selected groups + directly selected cats).
+    // Use a Set to deduplicate: a category that is both directly selected AND a child
+    // of a selected group must only be counted once.
     const implicitCatIds = effectiveGroupIds.flatMap((gid) =>
       Object.values(stagedCats)
         .filter((c) => c.entity.groupId === gid)
         .map((c) => c.entity.id)
     );
-    const allCatIds = [...directCatIds, ...implicitCatIds];
+    const allCatIds = [...new Set([...directCatIds, ...implicitCatIds])];
     const serverCatIds = allCatIds.filter((id) => !stagedCats[id]?.isNew);
 
     const serverCount =

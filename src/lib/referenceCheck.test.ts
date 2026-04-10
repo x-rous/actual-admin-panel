@@ -169,7 +169,8 @@ describe("buildRuleReferenceMap", () => {
     expect(result.size).toBe(0);
   });
 
-  it("counts both conditions and actions together for the same entity", () => {
+  it("counts a rule only once even when it references the same entity in both conditions and actions", () => {
+    // Semantics: "how many rules reference this entity", not "total occurrences".
     const rules = staged([
       makeRule("r1", {
         conditions: [{ field: "category", op: "is", value: "cat1", type: "id" }],
@@ -177,6 +178,6 @@ describe("buildRuleReferenceMap", () => {
       }),
     ]);
     const result = buildRuleReferenceMap(rules, ["category"]);
-    expect(result.get("cat1")).toBe(2);
+    expect(result.get("cat1")).toBe(1);
   });
 });

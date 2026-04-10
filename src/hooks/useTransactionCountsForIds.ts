@@ -33,7 +33,7 @@ export function useTransactionCountsForIds(
     queryKey: ["transactionCounts", groupField, connection?.id, sortedIds],
     queryFn: () => {
       if (!connection) throw new Error("No active connection");
-      return getTransactionCountsForIds(connection, groupField, ids);
+      return getTransactionCountsForIds(connection, groupField, sortedIds);
     },
     enabled: options.enabled && ids.length > 0 && !!connection,
     staleTime: 30_000,

@@ -28,14 +28,20 @@ export function buildRuleReferenceMap(
 
   for (const s of Object.values(stagedRules)) {
     if (s.isDeleted) continue;
+    // Collect matched IDs into a per-rule Set so that a rule referencing the
+    // same entity in multiple conditions/actions counts as one reference, not many.
+    const matchedInRule = new Set<string>();
     for (const part of [...s.entity.conditions, ...s.entity.actions]) {
       if (!part.field || !fieldSet.has(part.field)) continue;
       const ids = Array.isArray(part.value) ? part.value : [part.value];
       for (const id of ids) {
         if (typeof id === "string" && id) {
-          counts.set(id, (counts.get(id) ?? 0) + 1);
+          matchedInRule.add(id);
         }
       }
+    }
+    for (const id of matchedInRule) {
+      counts.set(id, (counts.get(id) ?? 0) + 1);
     }
   }
 

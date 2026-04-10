@@ -32,18 +32,16 @@ export function buildPayeeDeleteWarning(
   txCount: number | undefined,
   loading: boolean
 ): string {
-  const txLine = loading
-    ? "Checking usage..."
-    : txCount && txCount > 0
-      ? `${plural(txCount, "transaction")} will be unlinked — their payee will be cleared.`
-      : null;
+  // txLine is only set when we have a definite non-zero count; loading is handled separately.
+  const txLine = !loading && txCount && txCount > 0
+    ? `${plural(txCount, "transaction")} will be unlinked — their payee will be cleared.`
+    : null;
 
-  if (ruleCount > 0 && txLine && !loading) {
+  if (ruleCount > 0 && txLine) {
     return `"${name}" is referenced by ${plural(ruleCount, "rule")} and used in ${plural(txCount!, "transaction")}. ${txLine}`;
   }
   if (ruleCount > 0) {
-    const suffix = loading ? ` ${txLine}` : "";
-    return `"${name}" is referenced by ${plural(ruleCount, "rule")}. Deleting it may break those rules.${suffix}`;
+    return `"${name}" is referenced by ${plural(ruleCount, "rule")}. Deleting it may break those rules.${loading ? " Checking usage..." : ""}`;
   }
   if (txLine) {
     return `"${name}" is used in ${plural(txCount!, "transaction")}. ${txLine}`;
@@ -97,18 +95,16 @@ export function buildCategoryDeleteWarning(
   txCount: number | undefined,
   loading: boolean
 ): string {
-  const txLine = loading
-    ? "Checking usage..."
-    : txCount && txCount > 0
-      ? `${plural(txCount, "transaction")} will be uncategorized.`
-      : null;
+  // txLine is only set when we have a definite non-zero count; loading is handled separately.
+  const txLine = !loading && txCount && txCount > 0
+    ? `${plural(txCount, "transaction")} will be uncategorized.`
+    : null;
 
-  if (ruleCount > 0 && txLine && !loading) {
+  if (ruleCount > 0 && txLine) {
     return `"${name}" is referenced by ${plural(ruleCount, "rule")} and used in ${plural(txCount!, "transaction")}. ${txLine}`;
   }
   if (ruleCount > 0) {
-    const suffix = loading ? ` ${txLine}` : "";
-    return `"${name}" is referenced by ${plural(ruleCount, "rule")}. Deleting it may break those rules.${suffix}`;
+    return `"${name}" is referenced by ${plural(ruleCount, "rule")}. Deleting it may break those rules.${loading ? " Checking usage..." : ""}`;
   }
   if (txLine) {
     return `"${name}" is used in ${plural(txCount!, "transaction")}. ${txLine}`;
@@ -134,7 +130,7 @@ export function buildCategoryGroupDeleteWarning(
   const parts: string[] = [header];
 
   if (ruleCount > 0) {
-    parts.push(`${plural(ruleCount, "rule")} reference these categories.`);
+    parts.push(`${plural(ruleCount, "rule")} ${ruleCount === 1 ? "references" : "reference"} these categories.`);
   }
   if (loading) {
     parts.push("Checking usage...");

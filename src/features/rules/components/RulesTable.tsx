@@ -172,12 +172,22 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId, accountId }: 
 
   function handleDeleteSelected() {
     if (activeSelectedIds.length === 0) return;
+    // Schedule-linked rules are managed by the Schedules page and cannot be
+    // deleted directly — mirror the per-row disabled guard for bulk actions.
+    const deletableIds = activeSelectedIds.filter(
+      (id) => !stagedRules[id]?.entity.actions.some((a) => a.op === "link-schedule")
+    );
+    const skippedCount = activeSelectedIds.length - deletableIds.length;
+    if (deletableIds.length === 0) return;
+    const skippedNote = skippedCount > 0
+      ? ` ${skippedCount} schedule-linked rule${skippedCount !== 1 ? "s" : ""} skipped.`
+      : "";
     setConfirmDialog({
-      title: `Delete ${activeSelectedIds.length} rule${activeSelectedIds.length !== 1 ? "s" : ""}?`,
-      message: buildRuleBulkDeleteWarning(activeSelectedIds.length),
+      title: `Delete ${deletableIds.length} rule${deletableIds.length !== 1 ? "s" : ""}?`,
+      message: buildRuleBulkDeleteWarning(deletableIds.length) + skippedNote,
       onConfirm: () => {
         pushUndo();
-        for (const id of activeSelectedIds) stageDelete("rules", id);
+        for (const id of deletableIds) stageDelete("rules", id);
         clearSelection();
       },
     });

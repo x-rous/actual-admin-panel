@@ -305,7 +305,10 @@ export function AccountsTable({
   function handleBulkDelete() {
     const serverIds = [...selectedIds].filter((id) => staged[id] && !staged[id].isNew);
     const newIds = [...selectedIds].filter((id) => staged[id]?.isNew);
-    const nonZeroBalanceCount = serverIds.filter((id) => Math.abs(balances?.get(id) ?? 0) > 0).length;
+    const nonZeroBalanceCount = serverIds.filter((id) => {
+      const b = balances?.get(id);
+      return b === undefined || Math.abs(b) > 0; // unknown balance treated conservatively as non-zero
+    }).length;
     const totalRuleCount = [...selectedIds].reduce((sum, id) => sum + (accountRuleCount.get(id) ?? 0), 0);
     const count = selectedIds.size;
     const capturedIds = [...selectedIds];
@@ -331,7 +334,10 @@ export function AccountsTable({
     );
     const count = closeableIds.length;
     if (count === 0) return;
-    const nonZeroBalanceCount = closeableIds.filter((id) => Math.abs(balances?.get(id) ?? 0) > 0).length;
+    const nonZeroBalanceCount = closeableIds.filter((id) => {
+      const b = balances?.get(id);
+      return b === undefined || Math.abs(b) > 0; // unknown balance treated conservatively as non-zero
+    }).length;
     const capturedIds = [...closeableIds];
     setDeleteIntent({
       kind: "bulkClose",
