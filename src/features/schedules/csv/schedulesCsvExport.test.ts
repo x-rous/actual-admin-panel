@@ -1,4 +1,5 @@
 import { exportSchedulesToCsv } from "./schedulesCsvExport";
+import { parseCsvLine } from "@/lib/csv";
 import type { StagedMap } from "@/types/staged";
 import type { Schedule } from "@/types/entities";
 
@@ -14,10 +15,10 @@ function makeStaged(schedules: Schedule[]): StagedMap<Schedule> {
 
 function parseCsv(csv: string): Record<string, string>[] {
   const lines = csv.split("\n").filter(Boolean);
-  const headers = lines[0]!.split(",");
+  const headers = parseCsvLine(lines[0]!);
   return lines.slice(1).map((line) => {
-    const cells = line.split(",");
-    return Object.fromEntries(headers.map((h, i) => [h, (cells[i] ?? "").replace(/^"|"$/g, "")]));
+    const cells = parseCsvLine(line);
+    return Object.fromEntries(headers.map((h, i) => [h, cells[i] ?? ""]));
   });
 }
 

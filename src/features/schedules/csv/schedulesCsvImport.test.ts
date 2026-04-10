@@ -17,6 +17,14 @@ function makePayeeMaps(entries: { id: string; name: string }[]): StagedMap<{ id:
   return map;
 }
 
+function makeAccountMaps(entries: { id: string; name: string }[]): StagedMap<{ id: string; name: string }> {
+  const map: StagedMap<{ id: string; name: string }> = {};
+  for (const e of entries) {
+    map[e.id] = { entity: e, original: e, isNew: false, isUpdated: false, isDeleted: false, validationErrors: {} };
+  }
+  return map;
+}
+
 // ─── Error cases ──────────────────────────────────────────────────────────────
 
 describe("importSchedulesFromCsv — error cases", () => {
@@ -226,6 +234,46 @@ describe("importSchedulesFromCsv — entity resolution", () => {
     const result = importSchedulesFromCsv(csv, maps);
     if (!("error" in result)) {
       expect(result.schedules[0]!.payeeId).toBeNull();
+    }
+  });
+
+  it("resolves account name to id", () => {
+    const csv = "date,account\n2025-01-01,Checking\n";
+    const maps = { payees: emptyMaps.payees, accounts: makeAccountMaps([{ id: "acct-1", name: "Checking" }]) };
+    const result = importSchedulesFromCsv(csv, maps);
+    if (!("error" in result)) {
+      expect(result.schedules[0]!.accountId).toBe("acct-1");
+    }
+  });
+
+  it("resolves account name case-insensitively", () => {
+    const csv = "date,account\n2025-01-01,checking\n";
+    const maps = { payees: emptyMaps.payees, accounts: makeAccountMaps([{ id: "acct-1", name: "Checking" }]) };
+    const result = importSchedulesFromCsv(csv, maps);
+    if (!("error" in result)) {
+      expect(result.schedules[0]!.accountId).toBe("acct-1");
+    }
+  });
+
+  it("sets accountId to null when name does not match any account", () => {
+    const csv = "date,account\n2025-01-01,Unknown Bank\n";
+    const result = importSchedulesFromCsv(csv, emptyMaps);
+    if (!("error" in result)) {
+      expect(result.schedules[0]!.accountId).toBeNull();
+    }
+  });
+
+  it("sets accountId to null for deleted accounts (excluded from lookup)", () => {
+    const csv = "date,account\n2025-01-01,Checking\n";
+    const maps = {
+      payees: emptyMaps.payees,
+      accounts: {
+        "acct-1": { entity: { id: "acct-1", name: "Checking" }, original: { id: "acct-1", name: "Checking" }, isNew: false, isUpdated: false, isDeleted: true, validationErrors: {} },
+      } as StagedMap<{ id: string; name: string }>,
+    };
+    const result = importSchedulesFromCsv(csv, maps);
+    if (!("error" in result)) {
+      expect(result.schedules[0]!.accountId).toBeNull();
     }
   });
 });

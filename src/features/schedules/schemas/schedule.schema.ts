@@ -78,16 +78,17 @@ export const scheduleFormSchema = z
         });
       }
     }
+    const strictNumeric = /^-?\d+(\.\d+)?$/;
     if (data.amountOp === "isbetween") {
-      if (!data.amountNum1 || isNaN(parseFloat(data.amountNum1))) {
+      if (!data.amountNum1 || !strictNumeric.test(data.amountNum1.trim())) {
         ctx.addIssue({ code: "custom", path: ["amountNum1"], message: "Required" });
       }
-      if (!data.amountNum2 || isNaN(parseFloat(data.amountNum2))) {
+      if (!data.amountNum2 || !strictNumeric.test(data.amountNum2.trim())) {
         ctx.addIssue({ code: "custom", path: ["amountNum2"], message: "Required" });
       }
     }
-    if ((data.amountOp === "is" || data.amountOp === "isapprox") && data.amount) {
-      if (isNaN(parseFloat(data.amount))) {
+    if (data.amountOp === "is" || data.amountOp === "isapprox") {
+      if (!data.amount || !strictNumeric.test(data.amount.trim())) {
         ctx.addIssue({ code: "custom", path: ["amount"], message: "Must be a number" });
       }
     }
@@ -96,7 +97,9 @@ export const scheduleFormSchema = z
 export type ScheduleFormValues = z.infer<typeof scheduleFormSchema>;
 
 export function defaultFormValues(): ScheduleFormValues {
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   return {
     name: "",
     payeeId: "",

@@ -1,7 +1,7 @@
 "use client";
 
 import { CONDITION_FIELDS, ACTION_FIELDS, ACTION_OPS } from "../utils/ruleFields";
-import { valueToString } from "../utils/rulePreview";
+import { valueToString, isRecurConfig } from "../utils/rulePreview";
 import type { EntityMaps } from "../utils/rulePreview";
 import type { ConditionOrAction, RecurConfig } from "@/types/entities";
 import { cn } from "@/lib/utils";
@@ -49,13 +49,7 @@ function resolveValues(
   fieldDefs: typeof CONDITION_FIELDS | typeof ACTION_FIELDS
 ): string[] {
   // Date conditions in schedule-linked rules carry a RecurConfig object as their value.
-  if (
-    field === "date" &&
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    !("num1" in (value as object))
-  ) {
+  if (field === "date" && isRecurConfig(value)) {
     const summary = recurSummary(value as unknown as RecurConfig);
     return summary ? [summary] : ["recurring"];
   }

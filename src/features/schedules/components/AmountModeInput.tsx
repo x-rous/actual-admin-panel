@@ -36,7 +36,11 @@ export function AmountModeInput({
   return (
     <div className="flex flex-col gap-2">
       {/* Mode selector */}
-      <div className="flex gap-1">
+      <div
+        className="flex gap-1"
+        aria-invalid={!!errors.amountOp}
+        aria-describedby={errors.amountOp ? "amount-op-error" : undefined}
+      >
         {MODE_OPTIONS.map((opt) => (
           <button
             key={opt.value}
@@ -46,13 +50,17 @@ export function AmountModeInput({
               "flex-1 rounded border px-2 py-1 text-xs font-medium transition-colors",
               amountOp === opt.value
                 ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground",
+              errors.amountOp && "border-destructive"
             )}
           >
             {opt.label}
           </button>
         ))}
       </div>
+      {errors.amountOp && (
+        <p id="amount-op-error" className="text-xs text-destructive">{errors.amountOp}</p>
+      )}
 
       {/* Amount inputs */}
       {(amountOp === "is" || amountOp === "isapprox") && (

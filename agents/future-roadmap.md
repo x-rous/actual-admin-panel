@@ -129,7 +129,7 @@ RD-023 (Rule diagnostics)    — depends on RD-007; enhanced by RD-016 if availa
 - `amount` is either a number or `{ num1, num2 }` when `amountOp === "isbetween"`
 
 **API endpoints:**
-```
+```text
 GET    /budgets/{id}/schedules          → list all schedules
 POST   /budgets/{id}/schedules          → create schedule from ScheduleInput
 PATCH  /budgets/{id}/schedules/:id      → update schedule from ScheduleInput
@@ -143,7 +143,7 @@ DELETE /budgets/{id}/schedules/:id      → delete schedule
 - The Rules UI must be able to safely open and preserve linked schedule rules, including the `link-schedule` action
 
 **Files to create:**
-```
+```text
 src/lib/api/schedules.ts               — getSchedules, createSchedule, updateSchedule, deleteSchedule
 src/features/schedules/
   hooks/useSchedules.ts                — React Query fetch hook
@@ -325,7 +325,7 @@ src/features/tags/
 **What:** Add a read-only current balance column to the Accounts table. Users currently have no visibility into account balances inside actual-bench.
 
 **API endpoint:**
-```
+```text
 GET /budgets/{id}/accounts/:accountId/balance
     Optional query param: ?cutoff_date=YYYY-MM-DD
     Response: { data: { amount: number } }   (amount in cents)

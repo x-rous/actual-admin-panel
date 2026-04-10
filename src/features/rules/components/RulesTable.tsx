@@ -364,17 +364,18 @@ export function RulesTable({ onEdit, onMerge, payeeId, categoryId, accountId }: 
                             <RotateCcw />
                           </Button>
                         )}
-                        {!isScheduleLinked && (
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            className="text-destructive hover:text-destructive"
-                            title="Delete"
-                            onClick={() => handleDelete(rule.id)}
-                          >
-                            <Trash2 />
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="text-destructive hover:text-destructive disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={isScheduleLinked ? "Rule is linked to a schedule — delete it from the Schedules page" : "Delete"}
+                          aria-label={isScheduleLinked ? "Delete (managed by schedule)" : "Delete"}
+                          disabled={isScheduleLinked}
+                          aria-disabled={isScheduleLinked}
+                          onClick={isScheduleLinked ? undefined : () => handleDelete(rule.id)}
+                        >
+                          <Trash2 />
+                        </Button>
                       </div>
                     </td>
                   </tr>

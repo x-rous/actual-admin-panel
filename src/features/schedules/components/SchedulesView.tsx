@@ -58,6 +58,10 @@ export function SchedulesView() {
     if (file.size > CSV_MAX_BYTES) { toast.error("File is too large (max 5 MB)."); return; }
 
     const reader = new FileReader();
+    reader.onerror = (ev) => {
+      const msg = (ev.target as FileReader | null)?.error?.message;
+      toast.error("Failed to read file" + (msg ? `: ${msg}` : ""));
+    };
     reader.onload = (event) => {
       const text = event.target?.result;
       if (typeof text !== "string") return;
@@ -106,11 +110,11 @@ export function SchedulesView() {
             onChange={handleImportCsv}
           />
           <Button variant="outline" size="sm" onClick={() => importInputRef.current?.click()} title="Import CSV">
-            <Download />
+            <Upload />
             Import
           </Button>
           <Button variant="outline" size="sm" onClick={handleExportCsv} title="Export CSV">
-            <Upload />
+            <Download />
             Export
           </Button>
           <Button size="sm" onClick={openNew}>

@@ -312,31 +312,31 @@ export function SchedulesTable({ onEdit, onEditAsRule }: Props) {
                     {/* Row actions */}
                     <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon-xs" title="Edit" onClick={() => onEdit(entity.id)}>
+                        <Button variant="ghost" size="icon-xs" title="Edit" aria-label="Edit" onClick={() => onEdit(entity.id)}>
                           <Pencil />
                         </Button>
-                        <Button variant="ghost" size="icon-xs" title="Duplicate" onClick={() => handleDuplicate(entity)}>
+                        <Button variant="ghost" size="icon-xs" title="Duplicate" aria-label="Duplicate" onClick={() => handleDuplicate(entity)}>
                           <Copy />
                         </Button>
                         {entity.ruleId && (
-                          <Button variant="ghost" size="icon-xs" title="Edit as Rule" onClick={() => onEditAsRule(entity.ruleId!)}>
+                          <Button variant="ghost" size="icon-xs" title="Edit as Rule" aria-label="Edit as Rule" onClick={() => onEditAsRule(entity.ruleId!)}>
                             <ExternalLink />
                           </Button>
                         )}
                         {(isNew || isUpdated) && !isDeleted && (
-                          <Button variant="ghost" size="icon-xs" title="Revert" onClick={() => revertEntity("schedules", entity.id)}>
+                          <Button variant="ghost" size="icon-xs" title="Revert" aria-label="Revert" onClick={() => revertEntity("schedules", entity.id)}>
                             <RotateCcw />
                           </Button>
                         )}
                         {saveError && (
-                          <Button variant="ghost" size="icon-xs" title="Clear error" onClick={() => clearSaveError("schedules", entity.id)}>
+                          <Button variant="ghost" size="icon-xs" title="Clear error" aria-label="Clear error" onClick={() => clearSaveError("schedules", entity.id)}>
                             <RotateCcw />
                           </Button>
                         )}
                         <Button
                           variant="ghost" size="icon-xs"
                           className="text-destructive hover:text-destructive"
-                          title="Delete"
+                          title="Delete" aria-label="Delete"
                           onClick={() => handleDelete(entity.id)}
                         >
                           <Trash2 />

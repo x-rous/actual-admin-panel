@@ -1,5 +1,6 @@
 import { parseCsvLine, parseBoolean } from "@/lib/csv";
 import { generateId } from "@/lib/uuid";
+import { recurConfigSchema } from "../schemas/schedule.schema";
 import type { StagedMap } from "@/types/staged";
 import type { Schedule, ScheduleAmountRange, ScheduleAmountOp } from "@/types/entities";
 
@@ -68,37 +69,36 @@ export function importSchedulesFromCsv(
     const dateRaw = cell(dateIdx);
     if (!dateRaw) { skipped++; continue; }
 
-    // Parse date — either ISO string or JSON RecurConfig
+    // Parse date — either ISO string or validated RecurConfig JSON
     let date: Schedule["date"];
     if (ISO_DATE.test(dateRaw)) {
       date = dateRaw;
     } else {
       try {
-        date = JSON.parse(dateRaw) as Schedule["date"];
-        if (typeof date !== "object" || !date || !("frequency" in date)) {
-          skipped++; continue;
-        }
+        const parsed = JSON.parse(dateRaw);
+        const result = recurConfigSchema.safeParse(parsed);
+        if (!result.success) { skipped++; continue; }
+        date = result.data as Schedule["date"];
       } catch {
         skipped++; continue;
       }
     }
 
-    // Amount
+    // Amount — set amountOp only after confirming the numeric parse succeeded
     let amount: number | ScheduleAmountRange | undefined;
     let amountOp: ScheduleAmountOp | undefined;
     const amountRaw = cell(amountIdx);
     const opRaw     = cell(opIdx);
 
     if (amountRaw && opRaw && VALID_AMOUNT_OPS.has(opRaw)) {
-      amountOp = opRaw as ScheduleAmountOp;
       if (opRaw === "isbetween") {
         const parts = amountRaw.split("|");
         const n1 = parseInt(parts[0] ?? "");
         const n2 = parseInt(parts[1] ?? "");
-        if (!isNaN(n1) && !isNaN(n2)) amount = { num1: n1, num2: n2 };
+        if (!isNaN(n1) && !isNaN(n2)) { amount = { num1: n1, num2: n2 }; amountOp = "isbetween"; }
       } else {
         const n = parseInt(amountRaw);
-        if (!isNaN(n)) amount = n;
+        if (!isNaN(n)) { amount = n; amountOp = opRaw as ScheduleAmountOp; }
       }
     }
 

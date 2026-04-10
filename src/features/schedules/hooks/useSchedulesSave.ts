@@ -26,6 +26,7 @@ export function useSchedulesSave() {
 
     setIsSaving(true);
 
+    try {
     const ops = computeSaveOperations<Schedule>(staged);
     // Skip incomplete schedules (no date set)
     const toCreate = ops.toCreate.filter((s) => !!s.date);
@@ -115,8 +116,6 @@ export function useSchedulesSave() {
       }
     }
 
-    setIsSaving(false);
-
     const store = useStagedStore.getState();
 
     for (const id of succeededCreateIds) store.stageDelete("schedules", id);
@@ -137,8 +136,12 @@ export function useSchedulesSave() {
     }
 
     await queryClient.invalidateQueries({ queryKey: ["schedules", connection.id] });
+    await queryClient.invalidateQueries({ queryKey: ["rules", connection.id] });
 
     return { succeeded, failed, idMap };
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return { save, isSaving, hasPendingChanges };

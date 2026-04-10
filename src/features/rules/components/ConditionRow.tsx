@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { TagInput } from "@/components/ui/tag-input";
 import { cn } from "@/lib/utils";
 import { EntityCombobox, MultiEntityCombobox } from "./EntityCombobox";
-import { valueToString } from "../utils/rulePreview";
+import { valueToString, isRecurConfig } from "../utils/rulePreview";
 import { CONDITION_FIELDS, getConditionOps } from "../utils/ruleFields";
 import { recurSummary } from "@/features/schedules/lib/recurSummary";
 import type { ConditionOrAction, AmountRange, RecurConfig } from "@/types/entities";
@@ -147,17 +147,6 @@ function ConditionValueInput({
       onChange={(e) => onChange({ ...condition, value: e.target.value })}
       placeholder="value…"
     />
-  );
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function isRecurConfig(value: ConditionOrAction["value"]): boolean {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    "frequency" in (value as object)
   );
 }
 

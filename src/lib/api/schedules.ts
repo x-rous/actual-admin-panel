@@ -35,9 +35,8 @@ function normalizeSchedule(raw: ApiSchedule): Schedule {
 type ScheduleWritable = Omit<Schedule, "id" | "ruleId" | "nextDate" | "completed">;
 
 function denormalizeSchedule(s: ScheduleWritable): ApiScheduleInput {
-  // date is required by ApiScheduleInput; fall back to today if somehow missing
-  const date = s.date ?? new Date().toISOString().slice(0, 10);
-  const input: ApiScheduleInput = { date };
+  if (s.date == null) throw new Error("Schedule date is required but was missing");
+  const input: ApiScheduleInput = { date: s.date };
   if (s.name !== undefined) input.name = s.name;
   input.posts_transaction = s.postsTransaction ?? false;
   input.payee = s.payeeId ?? null;

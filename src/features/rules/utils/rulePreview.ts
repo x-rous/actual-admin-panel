@@ -9,6 +9,16 @@ import type { Payee, Category, Account, CategoryGroup } from "@/types/entities";
 import { recurSummary } from "@/features/schedules/lib/recurSummary";
 import { CONDITION_FIELDS, ACTION_FIELDS, ACTION_OPS } from "./ruleFields";
 
+/** True when value is a RecurConfig (schedule-linked date condition). */
+export function isRecurConfig(value: ConditionOrAction["value"]): boolean {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "frequency" in (value as object)
+  );
+}
+
 export type EntityMaps = {
   payees: StagedMap<Payee>;
   categories: StagedMap<Category>;
@@ -37,14 +47,7 @@ function resolveValue(
   fieldDefs: Record<string, { entity?: string }>
 ): string {
   // Date conditions in schedule-linked rules carry a RecurConfig object as their value.
-  // Detect by checking: object, not array, no num1 (which would make it an AmountRange).
-  if (
-    field === "date" &&
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    !("num1" in (value as object))
-  ) {
+  if (field === "date" && isRecurConfig(value)) {
     return recurSummary(value as unknown as RecurConfig) || "recurring";
   }
 
