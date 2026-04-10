@@ -10,7 +10,7 @@ import { recurSummary } from "@/features/schedules/lib/recurSummary";
 import { CONDITION_FIELDS, ACTION_FIELDS, ACTION_OPS } from "./ruleFields";
 
 /** True when value is a RecurConfig (schedule-linked date condition). */
-export function isRecurConfig(value: ConditionOrAction["value"]): boolean {
+export function isRecurConfig(value: unknown): value is RecurConfig {
   return (
     value !== null &&
     typeof value === "object" &&
@@ -48,7 +48,7 @@ function resolveValue(
 ): string {
   // Date conditions in schedule-linked rules carry a RecurConfig object as their value.
   if (field === "date" && isRecurConfig(value)) {
-    return recurSummary(value as unknown as RecurConfig) || "recurring";
+    return recurSummary(value) || "recurring";
   }
 
   const def = fieldDefs[field];

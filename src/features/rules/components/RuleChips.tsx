@@ -3,7 +3,7 @@
 import { CONDITION_FIELDS, ACTION_FIELDS, ACTION_OPS } from "../utils/ruleFields";
 import { valueToString, isRecurConfig } from "../utils/rulePreview";
 import type { EntityMaps } from "../utils/rulePreview";
-import type { ConditionOrAction, RecurConfig } from "@/types/entities";
+import type { ConditionOrAction } from "@/types/entities";
 import { cn } from "@/lib/utils";
 import { recurSummary } from "@/features/schedules/lib/recurSummary";
 
@@ -50,7 +50,7 @@ function resolveValues(
 ): string[] {
   // Date conditions in schedule-linked rules carry a RecurConfig object as their value.
   if (field === "date" && isRecurConfig(value)) {
-    const summary = recurSummary(value as unknown as RecurConfig);
+    const summary = recurSummary(value);
     return summary ? [summary] : ["recurring"];
   }
 

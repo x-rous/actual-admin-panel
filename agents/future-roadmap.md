@@ -91,6 +91,7 @@ RD-018 (Saved servers)       — complete
 RD-019 (Grouped categories)  — complete
 RD-020 (Rule editing improvements) — complete
 RD-023 (Rule diagnostics)    — depends on RD-007; enhanced by RD-016 if available
+RD-024 (SQLite diagnostic)   — independent; fully client-side (WASM SQLite)
 ```
 
 ---
@@ -350,7 +351,7 @@ GET /budgets/{id}/accounts/:accountId/balance
 |---|---|
 | **Priority** | Medium |
 | **Effort** | S |
-| **Status** | pending |
+| **Status** | complete |
 | **Depends on** | nothing |
 
 **What:** The API has `POST /payees/merge` but actual-bench does not call it. Currently payee merging is not exposed at all in the UI. This adds a merge action to the Payees page (select 2+ payees → merge into one).
@@ -1151,6 +1152,57 @@ type RuleDiagnostic = {
   details?: string[];
 };
 ```
+
+---
+
+### RD-024 — SQLite Budget File Diagnostic
+
+| | |
+|---|---|
+| **Priority** | Medium |
+| **Effort** | M |
+| **Status** | pending |
+| **Depends on** | nothing (fully client-side) |
+
+**What:** A diagnostic view that lets users drop or pick a `.sqlite` Actual Budget file and inspect its contents entirely in the browser. No file is uploaded to any server — processing happens via WASM SQLite.
+
+**Why:**
+- Useful for testers and power users who want to inspect raw budget state without writing SQL manually
+- Complements ActualQL (RD-007) by providing a structural overview before running queries
+- Fully offline — no server-side risk or data exposure
+- Natural fit for actual-bench's "workbench" positioning
+
+**Scope v1:**
+- File picker and drag-and-drop zone that reads the `.sqlite` file client-side
+- Display: file size, Actual schema version (from `migrations` or `meta` table), list of all tables with row counts
+- Read-only paginated table browser — pick any table, browse rows
+- Powered by [`sql.js`](https://github.com/sql-js/sql.js) or `wa-sqlite` (WASM SQLite); no native Node.js SQLite dependency
+
+**Non-goals:**
+- No file upload to actual-http-api or any server
+- No writes to the SQLite file
+- No transaction import from this view
+- No query execution in v1 (that is RD-007's scope)
+
+**Files to create:**
+```text
+src/features/sqlite-diagnostic/
+  components/SqliteDiagnosticView.tsx   — drop zone + file info + table list
+  components/TableBrowser.tsx           — paginated read-only row viewer
+  lib/sqliteReader.ts                   — sql.js wrapper: open file, list tables, count rows, fetch page
+src/app/(app)/sqlite-diagnostic/
+  page.tsx
+```
+
+**Files to update:**
+- `src/components/layout/Sidebar.tsx` — add nav entry (e.g. "SQLite Diagnostic")
+- `src/app/(app)/layout.tsx` if any route-level setup is needed
+
+**Implementation notes:**
+- `sql.js` is loaded from CDN or bundled as a dynamic import to avoid bloating the main bundle
+- The WASM binary must be served from `public/` or imported via a worker
+- File reading uses the `FileReader` API — no server roundtrip
+- v1 is intentionally read-only and stateless; the file is never persisted between sessions
 
 **UI notes:**
 - Provide summary cards at the top: total issues, errors, warnings, infos

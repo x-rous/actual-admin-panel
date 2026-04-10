@@ -37,6 +37,8 @@ export function AmountModeInput({
     <div className="flex flex-col gap-2">
       {/* Mode selector */}
       <div
+        role="radiogroup"
+        aria-label="Amount mode"
         className="flex gap-1"
         aria-invalid={!!errors.amountOp}
         aria-describedby={errors.amountOp ? "amount-op-error" : undefined}
@@ -45,6 +47,8 @@ export function AmountModeInput({
           <button
             key={opt.value}
             type="button"
+            role="radio"
+            aria-checked={amountOp === opt.value}
             onClick={() => onAmountOpChange(opt.value)}
             className={cn(
               "flex-1 rounded border px-2 py-1 text-xs font-medium transition-colors",

@@ -18,6 +18,7 @@ export type SchedulesImportError = { error: string };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const VALID_AMOUNT_OPS = new Set<string>(["is", "isapprox", "isbetween"]);
+const STRICT_INT = /^[+-]?\d+$/;
 
 /**
  * Parses a CSV string into a list of schedules to stage.
@@ -93,12 +94,15 @@ export function importSchedulesFromCsv(
     if (amountRaw && opRaw && VALID_AMOUNT_OPS.has(opRaw)) {
       if (opRaw === "isbetween") {
         const parts = amountRaw.split("|");
-        const n1 = parseInt(parts[0] ?? "");
-        const n2 = parseInt(parts[1] ?? "");
-        if (!isNaN(n1) && !isNaN(n2)) { amount = { num1: n1, num2: n2 }; amountOp = "isbetween"; }
+        const p0 = parts[0]?.trim() ?? "";
+        const p1 = parts[1]?.trim() ?? "";
+        if (parts.length === 2 && STRICT_INT.test(p0) && STRICT_INT.test(p1)) {
+          amount = { num1: Number(p0), num2: Number(p1) };
+          amountOp = "isbetween";
+        }
       } else {
-        const n = parseInt(amountRaw);
-        if (!isNaN(n)) { amount = n; amountOp = opRaw as ScheduleAmountOp; }
+        const trimmed = amountRaw.trim();
+        if (STRICT_INT.test(trimmed)) { amount = Number(trimmed); amountOp = opRaw as ScheduleAmountOp; }
       }
     }
 

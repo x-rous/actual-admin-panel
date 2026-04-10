@@ -2,19 +2,28 @@ import { z } from "zod";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-export const recurConfigSchema = z.object({
-  frequency: z.enum(["daily", "weekly", "monthly", "yearly"]),
-  interval: z.number().int().min(1).optional(),
-  patterns: z
-    .array(z.object({ value: z.number(), type: z.string() }))
-    .optional(),
-  skipWeekend: z.boolean().optional(),
-  start: z.string().regex(ISO_DATE, "Must be YYYY-MM-DD"),
-  endMode: z.enum(["never", "after_n_occurrences", "on_date"]),
-  endOccurrences: z.number().int().min(1).optional(),
-  endDate: z.string().regex(ISO_DATE, "Must be YYYY-MM-DD").optional(),
-  weekendSolveMode: z.enum(["before", "after"]).optional(),
-});
+export const recurConfigSchema = z
+  .object({
+    frequency: z.enum(["daily", "weekly", "monthly", "yearly"]),
+    interval: z.number().int().min(1).optional(),
+    patterns: z
+      .array(z.object({ value: z.number(), type: z.string() }))
+      .optional(),
+    skipWeekend: z.boolean().optional(),
+    start: z.string().regex(ISO_DATE, "Must be YYYY-MM-DD"),
+    endMode: z.enum(["never", "after_n_occurrences", "on_date"]),
+    endOccurrences: z.number().int().min(1).optional(),
+    endDate: z.string().regex(ISO_DATE, "Must be YYYY-MM-DD").optional(),
+    weekendSolveMode: z.enum(["before", "after"]).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.endMode === "on_date" && !data.endDate) {
+      ctx.addIssue({ code: "custom", path: ["endDate"], message: "Required when endMode is on_date" });
+    }
+    if (data.endMode === "after_n_occurrences" && !data.endOccurrences) {
+      ctx.addIssue({ code: "custom", path: ["endOccurrences"], message: "Required when endMode is after_n_occurrences" });
+    }
+  });
 
 export const scheduleFormSchema = z
   .object({

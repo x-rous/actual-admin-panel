@@ -311,7 +311,7 @@ export function SchedulesTable({ onEdit, onEditAsRule }: Props) {
 
                     {/* Row actions */}
                     <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                         <Button variant="ghost" size="icon-xs" title="Edit" aria-label="Edit" onClick={() => onEdit(entity.id)}>
                           <Pencil />
                         </Button>
