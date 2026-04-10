@@ -197,6 +197,7 @@ export function SchedulesTable({ onEdit, onEditAsRule }: Props) {
                     checked={allSelected}
                     ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
                     onChange={toggleSelectAll}
+                    aria-label="Select all schedules"
                     className="h-3.5 w-3.5 cursor-pointer rounded accent-primary"
                   />
                 </th>
@@ -239,6 +240,7 @@ export function SchedulesTable({ onEdit, onEditAsRule }: Props) {
                         type="checkbox"
                         checked={isRowSelected}
                         onChange={() => toggleSelect(entity.id)}
+                        aria-label={`Select schedule ${entity.name ?? entity.id}`}
                         className="h-3.5 w-3.5 cursor-pointer rounded accent-primary"
                       />
                     </td>

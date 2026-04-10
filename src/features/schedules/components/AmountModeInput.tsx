@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 
 export type AmountOp = "" | "is" | "isapprox" | "isbetween";
@@ -33,22 +34,42 @@ export function AmountModeInput({
   onAmountOpChange, onAmountChange, onAmountNum1Change, onAmountNum2Change,
   errors = {},
 }: Props) {
+  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const currentIdx = MODE_OPTIONS.findIndex((o) => o.value === amountOp);
+    let nextIdx: number | null = null;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      nextIdx = (currentIdx + 1) % MODE_OPTIONS.length;
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      nextIdx = (currentIdx - 1 + MODE_OPTIONS.length) % MODE_OPTIONS.length;
+    }
+    if (nextIdx !== null) {
+      e.preventDefault();
+      onAmountOpChange(MODE_OPTIONS[nextIdx]!.value);
+      buttonRefs.current[nextIdx]?.focus();
+    }
+  }, [amountOp, onAmountOpChange]);
+
   return (
     <div className="flex flex-col gap-2">
-      {/* Mode selector */}
+      {/* Mode selector — roving tabindex radiogroup */}
       <div
         role="radiogroup"
         aria-label="Amount mode"
         className="flex gap-1"
         aria-invalid={!!errors.amountOp}
         aria-describedby={errors.amountOp ? "amount-op-error" : undefined}
+        onKeyDown={handleKeyDown}
       >
-        {MODE_OPTIONS.map((opt) => (
+        {MODE_OPTIONS.map((opt, i) => (
           <button
             key={opt.value}
             type="button"
             role="radio"
             aria-checked={amountOp === opt.value}
+            tabIndex={amountOp === opt.value ? 0 : -1}
+            ref={(el) => { buttonRefs.current[i] = el; }}
             onClick={() => onAmountOpChange(opt.value)}
             className={cn(
               "flex-1 rounded border px-2 py-1 text-xs font-medium transition-colors",
