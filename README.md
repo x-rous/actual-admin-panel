@@ -33,6 +33,8 @@ A web-based admin tool for [Actual Budget](https://actualbudget.org/) that conne
 - **Payees** — view, rename, and delete payees; CSV import/export
 - **Categories** — view, rename, show/hide, and reorder categories within groups; CSV import/export
 - **Rules** — view, filter by stage, create, edit, and merge rules with a full condition/action builder; CSV import/export
+- **Schedules** — create and manage one-time and recurring schedules with amount modes, weekend adjustment, and end conditions; overdue dates are highlighted; CSV import/export
+- **Tags** — create, rename, and color-code tags (requires Actual Budget v26.3.0+); CSV import/export
 
 → See [FEATURES.md](FEATURES.md) for the full feature reference.
 
@@ -114,6 +116,8 @@ Ready-to-use sample CSV files are included in [`public/samples csv/`](public/sam
 | [`sample-payees.csv`](public/samples%20csv/sample-payees.csv) | 15 common payees |
 | [`sample-categories.csv`](public/samples%20csv/sample-categories.csv) | 8 groups and 25 categories spanning income, housing, food, transport, health, and more |
 | [`sample-rules.csv`](public/samples%20csv/sample-rules.csv) | 10 rules demonstrating multi-condition, multi-action, `or` logic, stage filtering, and payee auto-creation |
+| [`sample-schedules.csv`](public/samples%20csv/sample-schedules.csv) | 6 schedules — one-time, monthly, weekly, yearly, and range-amount examples |
+| [`sample-tags.csv`](public/samples%20csv/sample-tags.csv) | 8 tags with varied colors and descriptions |
 
 ### CSV Formats
 
@@ -123,6 +127,9 @@ Ready-to-use sample CSV files are included in [`public/samples csv/`](public/sam
 
 **Categories** — columns: `type` (required: `group` or `category`), `name` (required), `group`, `is_income`, `hidden`
 > Group rows must appear before the category rows that reference them.
+
+**Schedules** — columns: `name` (optional), `date` (required — ISO date `YYYY-MM-DD` for one-time, or JSON-encoded RecurConfig for recurring), `amount` (optional, in cents — use `num1|num2` for `isbetween`), `amountOp` (optional: `is`, `isapprox`, `isbetween`), `payee` (optional name), `account` (optional name), `posts_transaction` (optional bool)
+> The `completed` column is ignored on import — all imported schedules start as active.
 
 **Rules** — long format, one condition/action per row:
 
