@@ -19,7 +19,7 @@ Useful for power users who want more control over their budget data, and for tes
 - **Staged editing with undo/redo** - review every change locally before anything touches the server
 - **Multi-server, multi-budget** - save and switch between connections without leaking data between sessions
 - **Schedules management** - create and edit one-time and recurring schedules with full recurrence controls, amount modes, and weekend adjustment
-- **ActualQL console** *(coming soon)* - run ad-hoc queries against your budget directly from the browser
+- **ActualQL query workspace** - run ad-hoc ActualQL queries against your budget, inspect results as table / raw JSON / scalar / collapsible tree, save and replay named query packs, and copy a cURL command for any executed query
 - **SQLite budget diagnostic** *(coming soon)* - inspect a `.sqlite` budget file client-side: table overview, row counts, and a read-only table browser
 
 ## Architecture
@@ -58,6 +58,7 @@ All browser requests route through an internal Next.js proxy - no direct browser
 - **Rules** - view, filter by stage, create, edit, and merge rules with a full condition/action builder; CSV import/export
 - **Schedules** - create and manage one-time and recurring schedules with amount modes, weekend adjustment, and end conditions; overdue dates are highlighted; CSV import/export
 - **Tags** - create, rename, and color-code tags (requires Actual Budget v26.3.0+); CSV import/export
+- **ActualQL Queries** - syntax-highlighted query editor with run / format / save / explain actions; four result views (table, raw JSON, scalar, collapsible tree); built-in example packs; saved queries with favorites; query history; cURL copy; lint warnings; and an inline quick reference dialog
 
 → See [FEATURES.md](FEATURES.md) for the full feature reference.
 
@@ -168,10 +169,8 @@ Ready-to-use sample CSV files are included in [`public/samples csv/`](public/sam
 
 ## Coming Soon
 
-- **ActualQL console** - run ad-hoc queries against your budget from the browser; save and replay query packs
 - **Rule diagnostics** - detect conflicting, shadowed, or redundant rules across stages
 - **SQLite budget diagnostic** - drop a `.sqlite` file to inspect tables, row counts, and schema version without uploading anything to a server
-- **Entity usage & delete safety** - see which rules reference a payee or category before deleting it
 
 ## Known Limitations
 

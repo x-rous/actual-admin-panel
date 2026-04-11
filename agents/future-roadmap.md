@@ -75,7 +75,7 @@ RD-003 (Balance col)   — complete; add getAccountBalance to accounts.ts
 RD-004 (Payee merge)   — complete; add mergePayees to payees.ts
 RD-005 (Rules-by-payee)— complete; can be done with RD-016 (same code path)
 RD-006 (Budget export) — requires proxy binary support patch
-RD-007 (ActualQL console + saved query packs) — independent; shares run-query util with RD-016
+RD-007 (ActualQL console + saved query packs) — complete
 RD-008 (Delete txn action) — complete
 RD-009 (Session token) — independent
 RD-010 (Version display) — complete
@@ -84,13 +84,13 @@ RD-012 (Currency symbol) — independent
 RD-013 (High contrast theme) — independent
 RD-014 (Regex in rules) — complete
 RD-015 (Rule templates) — complete
-RD-016 (Entity usage & delete safety) — combines former RD-017 and RD-021;
+RD-016 (Entity usage & delete safety) — complete combines former RD-017 and RD-021;
                                         RD-005 is a sub-task; depends on RD-003 for account balance checks;
                                         may reuse run-query util from RD-007
 RD-018 (Saved servers)       — complete
 RD-019 (Grouped categories)  — complete
 RD-020 (Rule editing improvements) — complete
-RD-023 (Rule diagnostics)    — depends on RD-007; enhanced by RD-016 if available
+RD-023 (Rule diagnostics)    — depends on RD-007 (now complete); enhanced by RD-016 if available; unblocked
 RD-024 (SQLite diagnostic)   — independent; fully client-side (WASM SQLite)
 ```
 
@@ -454,7 +454,7 @@ if (contentType.includes("zip") || contentType.includes("octet-stream")) {
 |---|---|
 | **Priority** | Medium |
 | **Effort** | M |
-| **Status** | pending |
+| **Status** | complete |
 | **Depends on** | Shared `runQuery` utility (also used by RD-016) |
 
 **What:** A developer / power-user page where users can run arbitrary ActualQL queries against the open budget, inspect results in a generic table or raw JSON view, and save useful queries locally for quick reuse.

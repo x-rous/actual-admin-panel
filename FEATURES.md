@@ -101,6 +101,32 @@
 - CSV import and export
 - Info button on each row opens the Usage Inspector drawer; tags show the rules badge and a note that transaction data is not available for tags
 
+## ActualQL Queries
+
+- Dedicated query workspace for running arbitrary ActualQL JSON queries against the open budget
+- Resizable editor / results split — drag the divider to adjust the balance; position persists across reloads via session storage
+- Syntax-highlighted JSON editor with line numbers, current-line highlight, and JetBrains Mono font; edit raw JSON directly with no normalization or auto-correction
+- Action bar: Run (or Ctrl/Cmd+Enter), Format JSON, Save, Explain, and ActualQL Reference buttons
+- Parse errors shown inline beneath the editor before any network request is made
+- Lint warnings for risky query shapes — broad `transactions` queries with no `limit`, `groupBy`, or `calculate`; empty `$oneof`; `groupBy` with no aggregate; and more
+- Four result views selectable via tabs:
+  - **Table** — columns derived from the union of keys across all rows; nested values JSON-stringified; capped at 500 rows with a warning banner
+  - **Raw JSON** — syntax-highlighted with line numbers; full returned payload
+  - **Scalar** — large value card for `calculate` aggregate results
+  - **Tree** — collapsible recursive JSON tree; auto-selected for plain-object results; nodes with more than 5 children start collapsed
+- Smart cell formatting in the table view: ISO date strings displayed as human-readable dates (e.g. `Jan 15, 2024`); `amount` and `balance` integer columns formatted as decimal values (cents ÷ 100); raw value always accessible via hover tooltip
+- Execution metadata bar: OK / Error status chip, elapsed time, row count, and payload size shown inline with the result actions
+- Result actions: Copy result JSON, Copy query JSON, Copy sanitized cURL (secrets replaced with placeholders), and Copy full cURL (opt-in, clearly marked as containing real credentials)
+- cURL is always generated from the last successfully executed request, not the current editor state
+- **Explain this query** — one-click plain-English summary of what the current query does: target table, filters, grouping, aggregation, ordering, and whether the result is tabular or scalar
+- **ActualQL Reference** dialog — six-section quick reference covering basics, filter operators, joined fields, aggregates, transactions-specific options, and copyable snippets
+- Built-in example packs in four groups (Data inspection, Cleanup & validation, Aggregation, Targeted subset) — one-click insert into the editor
+- Saved queries — name and save any query locally per budget; load, rerun, duplicate, rename, delete, and pin as favorite
+- Query history — last 10 executed queries stored per budget in session storage; one-click reload into the editor; deduplicated (re-running the same query bumps it to the top rather than adding a duplicate)
+- Favorites — pin saved queries for fast access; shown at the top of the saved queries panel
+- Banner warns when unsaved staged changes exist — query results reflect saved server state, not pending local edits
+- Results bypass the staged store entirely; no mutations are introduced by running a query
+
 ## Delete Safety & Usage Inspector
 
 ### Confirmation dialogs
