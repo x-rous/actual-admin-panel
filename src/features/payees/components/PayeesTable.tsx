@@ -321,10 +321,9 @@ export function PayeesTable({ onCreateRule }: {
   // ── Bulk actions ─────────────────────────────────────────────────────────────
   function handleBulkDelete() {
     // Only delete regular payees (transfer payees are system-managed)
-    const deletableIds = [...selectedIds].filter(
-      (id) => staged[id] && !staged[id].entity.transferAccountId
-    );
-    const skipped = selectedIds.size - deletableIds.length;
+    const activeIds = [...selectedIds].filter((id) => staged[id] && !staged[id].isDeleted);
+    const deletableIds = activeIds.filter((id) => !staged[id]!.entity.transferAccountId);
+    const skipped = activeIds.length - deletableIds.length;
     const newIds = deletableIds.filter((id) => staged[id]?.isNew);
     const serverIds = deletableIds.filter((id) => !staged[id]?.isNew);
     const count = deletableIds.length;

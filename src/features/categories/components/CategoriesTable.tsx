@@ -369,12 +369,14 @@ export function CategoriesTable({
     for (const id of selectedIds) {
       if (stagedGroups[id]) {
         const g = stagedGroups[id];
+        if (g.isDeleted) continue;
         if (g.entity.isIncome && remainingIncomeAfter < 1 && incomeSkipped === 0) {
           incomeSkipped++;
           continue;
         }
         effectiveGroupIds.push(id);
       } else if (stagedCats[id]) {
+        if (stagedCats[id].isDeleted) continue;
         directCatIds.push(id);
       }
     }
