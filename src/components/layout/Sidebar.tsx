@@ -11,6 +11,7 @@ import {
   ScrollText,
   Calendar,
   Tag,
+  Terminal,
   PanelLeftClose,
   PanelLeftOpen,
   Trash2,
@@ -35,14 +36,22 @@ const GITHUB_URL = "https://github.com/x-rous/actual-bench";
 
 const LS_KEY = "sidebar-collapsed";
 
-const NAV_ITEMS = [
+type NavItem = {
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+};
+
+const NAV_ITEMS: NavItem[] = [
   { label: "Rules", href: "/rules", icon: ScrollText },
   { label: "Accounts", href: "/accounts", icon: Landmark },
   { label: "Payees", href: "/payees", icon: Users },
   { label: "Categories", href: "/categories", icon: LayoutList },
   { label: "Schedules", href: "/schedules", icon: Calendar },
   { label: "Tags", href: "/tags", icon: Tag },
-] as const;
+  { label: "ActualQL", href: "/query", icon: Terminal, badge: "dev" },
+];
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -83,8 +92,8 @@ export function Sidebar() {
       )}
     >
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2 pt-3">
-        {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
-          const active = pathname.startsWith(href);
+        {NAV_ITEMS.map(({ label, href, icon: Icon, badge }) => {
+          const active = pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
               key={href}
@@ -99,7 +108,16 @@ export function Sidebar() {
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              {!collapsed && label}
+              {!collapsed && (
+                <>
+                  {label}
+                  {badge && (
+                    <span className="ml-auto rounded-sm bg-muted px-1 py-0.5 text-[9px] font-medium text-muted-foreground/60">
+                      {badge}
+                    </span>
+                  )}
+                </>
+              )}
             </Link>
           );
         })}
