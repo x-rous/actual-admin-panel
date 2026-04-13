@@ -101,10 +101,10 @@ export function OverviewStatsSection({
   const stats: BudgetOverviewStats | undefined = snapshot?.stats;
 
   return (
-    <section className="w-full rounded-xl border border-border/70 bg-muted/15 px-4 py-2 sm:px-5 sm:py-2.5">
-      <div className="space-y-2.5">
-        <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          Budget Snapshot
+    <section className="w-full rounded-xl border border-border/70 bg-muted/15 px-4 pt-2 pb-3 sm:px-5 sm:pt-2.5 sm:pb-3.5">
+      <div className="space-y-3">
+        <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground pb-1">
+          Snapshot
         </div>
 
         <dl className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4 md:grid-cols-8 md:gap-x-1.5 lg:gap-x-2.5">
