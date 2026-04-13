@@ -106,6 +106,7 @@ function SidebarNavLink({ item, collapsed, pathname }: SidebarNavLinkProps) {
     <Link
       href={item.href}
       title={collapsed ? item.label : undefined}
+      aria-label={collapsed ? item.label : undefined}
       data-active={active ? "true" : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(

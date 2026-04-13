@@ -1,6 +1,6 @@
 import { runQuery } from "@/lib/api/query";
 import type { ConnectionInstance } from "@/store/connection";
-import type { BudgetOverviewSnapshot, OverviewStatKey } from "../types";
+import type { BudgetMode, BudgetOverviewSnapshot, OverviewStatKey } from "../types";
 
 type ScalarCountQuery = {
   ActualQLquery: {
@@ -127,7 +127,7 @@ function formatBudgetingSince(dateString: string): string {
 function deriveBudgetMode(
   zeroBudgetCount: number,
   reflectBudgetCount: number
-): string {
+): BudgetMode {
   if (zeroBudgetCount > reflectBudgetCount) {
     return "Envelope";
   }
@@ -161,7 +161,7 @@ async function fetchOverviewCountWithRetry(
 
 async function fetchBudgetModeWithRetry(
   connection: ConnectionInstance
-): Promise<string | null> {
+): Promise<BudgetMode | null> {
   for (let attempt = 1; attempt <= OVERVIEW_QUERY_MAX_ATTEMPTS; attempt += 1) {
     try {
       const [zeroBudgetCount, reflectBudgetCount] = await Promise.all([

@@ -39,7 +39,8 @@ function formatCount(value: number | null | undefined): string {
 function LoadingMetric() {
   return (
     <span
-      aria-hidden="true"
+      role="status"
+      aria-label="Loading snapshot metric"
       className="mx-auto mt-1 block h-4 w-10 animate-pulse rounded-md bg-muted-foreground/20 sm:h-[1.125rem] sm:w-12"
     />
   );
