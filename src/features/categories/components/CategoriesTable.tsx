@@ -551,7 +551,6 @@ export function CategoriesTable({
       <CategoriesTableCategoryRow
         key={entity.id}
         row={cat}
-        group={group}
         rowId={rowId}
         highlightedId={highlightedId}
         isSelected={selectedCell?.rowId === rowId}

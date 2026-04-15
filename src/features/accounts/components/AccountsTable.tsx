@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useHighlight } from "@/hooks/useHighlight";
 import { useEditableGrid } from "@/hooks/useEditableGrid";
@@ -364,6 +364,12 @@ export function AccountsTable({
     });
   }
 
+  // ── Stable row callbacks ─────────────────────────────────────────────────────
+  const handleSelectNameCell = useCallback((id: string) => selectCell(id, "name"), [selectCell]);
+  const handleStartEditingName = useCallback((id: string) => startEditing(id, "name"), [startEditing]);
+  const handleClearSaveError = useCallback((id: string) => clearSaveError("accounts", id), [clearSaveError]);
+  const handleRevert = useCallback((id: string) => revertEntity("accounts", id), [revertEntity]);
+
   // ── Render ───────────────────────────────────────────────────────────────────
   const totalCount = Object.keys(staged).length;
   const activeSelectedCount = [...selectedIds].filter((id) => staged[id] && !staged[id].isDeleted).length;
@@ -476,13 +482,13 @@ export function AccountsTable({
                       balance={balances?.get(entity.id)}
                       ruleCount={accountRuleCount.get(entity.id) ?? 0}
                       onToggleSelect={toggleSelectRow}
-                      onSelectNameCell={(id) => selectCell(id, "name")}
-                      onStartEditingName={(id) => startEditing(id, "name")}
+                      onSelectNameCell={handleSelectNameCell}
+                      onStartEditingName={handleStartEditingName}
                       onDoneName={handleNameDone}
                       onToggleNewBudgetType={handleToggleNewBudgetType}
                       onOpenRules={handleOpenRules}
-                      onClearSaveError={(id) => clearSaveError("accounts", id)}
-                      onRevert={(id) => revertEntity("accounts", id)}
+                      onClearSaveError={handleClearSaveError}
+                      onRevert={handleRevert}
                       onRequestClose={handleRequestClose}
                       onReopen={handleReopen}
                       onRequestDelete={handleRequestDelete}

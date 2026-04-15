@@ -29,22 +29,21 @@ const WEEKDAY: Record<string, string> = {
   SA: "Saturday",
 };
 
-function formatDate(iso: string): string {
+function parseIsoDate(iso: string): Date {
   const [year, month, day] = iso.split("-").map(Number);
-  const d = new Date(year, (month ?? 1) - 1, day ?? 1);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(year, (month ?? 1) - 1, day ?? 1);
+}
+
+function formatDate(iso: string): string {
+  return parseIsoDate(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function formatMonthDay(iso: string): string {
-  const [year, month, day] = iso.split("-").map(Number);
-  const d = new Date(year, (month ?? 1) - 1, day ?? 1);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return parseIsoDate(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function weekdayFromIso(iso: string): string {
-  const [year, month, day] = iso.split("-").map(Number);
-  const d = new Date(year, (month ?? 1) - 1, day ?? 1);
-  return d.toLocaleDateString("en-US", { weekday: "long" });
+  return parseIsoDate(iso).toLocaleDateString("en-US", { weekday: "long" });
 }
 
 const SINGULAR_LABEL: Record<string, string> = {
@@ -111,9 +110,9 @@ export function recurSummary(date: string | RecurConfig | undefined): string {
           base = `${prefix} on the ${weekNum} ${weekDay}`;
         }
       } else {
-        const [year, month, day] = start.split("-").map(Number);
-        const lastDayOfMonth = new Date(year, month ?? 1, 0).getDate();
-        const dayLabel = day === lastDayOfMonth ? "last day" : ordinal(day);
+        const d = parseIsoDate(start);
+        const lastDayOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        const dayLabel = d.getDate() === lastDayOfMonth ? "last day" : ordinal(d.getDate());
         base = `${prefix} on the ${dayLabel}`;
       }
       break;

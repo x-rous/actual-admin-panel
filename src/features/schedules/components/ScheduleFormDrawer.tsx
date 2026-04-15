@@ -275,7 +275,7 @@ export function ScheduleFormDrawer({ open, onOpenChange, scheduleId, onEditAsRul
 
   const setFieldValue = useCallback(
     <K extends Path<ScheduleFormValues>>(key: K, value: PathValue<ScheduleFormValues, K>) => {
-      setValue(key, value, { shouldDirty: true, shouldTouch: true });
+      setValue(key, value, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
     },
     [setValue]
   );
@@ -403,6 +403,7 @@ export function ScheduleFormDrawer({ open, onOpenChange, scheduleId, onEditAsRul
                 size="icon-sm"
                 className="text-destructive hover:text-destructive"
                 title="Delete schedule"
+                aria-label="Delete schedule"
                 onClick={handleDelete}
               >
                 <Trash2 />

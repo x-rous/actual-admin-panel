@@ -455,6 +455,7 @@ export const useStagedStore = create<StagedStoreState & StagedStoreActions>((set
         map[id] = {
           ...entry,
           original: structuredClone(entry.entity),
+          isNew: false,
           isUpdated: false,
           isDeleted: false,
           validationErrors: {},

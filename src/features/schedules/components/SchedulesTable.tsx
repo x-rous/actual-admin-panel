@@ -30,11 +30,8 @@ function formatAmount(
 
   const numericAmount = typeof amount === "number" ? amount : 0;
   const normalizedOp = amountOp === "is" ? "is" : "isapprox";
-  if (typeof numericAmount === "number") {
-    const display = (numericAmount / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    return normalizedOp === "isapprox" ? `≈ ${display}` : display;
-  }
-  return "≈ 0.00";
+  const display = (numericAmount / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return normalizedOp === "isapprox" ? `≈ ${display}` : display;
 }
 
 function formatDate(iso: string | undefined): string {

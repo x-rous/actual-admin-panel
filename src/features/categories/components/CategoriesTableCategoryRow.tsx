@@ -6,13 +6,12 @@ import { EditableCellInput } from "@/components/ui/editable-cell";
 import type { DoneAction } from "@/components/ui/editable-cell";
 import { EntityNoteButton } from "@/components/ui/entity-note-button";
 import { cn } from "@/lib/utils";
-import type { Category, CategoryGroup } from "@/types/entities";
+import type { Category } from "@/types/entities";
 import type { StagedEntity } from "@/types/staged";
 import { CategoryGroupAssignmentCell, type CategoryGroupOption } from "./CategoryGroupAssignmentCell";
 
 type Props = {
   row: StagedEntity<Category>;
-  group: StagedEntity<CategoryGroup>;
   rowId: string;
   highlightedId: string | null;
   isSelected: boolean;

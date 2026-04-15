@@ -392,6 +392,11 @@ export function PayeesTable({
                           ? "No regular payees in the current view can be selected"
                           : "Select all visible regular payees"
                       }
+                      aria-label={
+                        selectableRows.length === 0
+                          ? "No regular payees in the current view can be selected"
+                          : "Select all visible regular payees"
+                      }
                     />
                   </th>
                   <th className="w-1 p-0" />

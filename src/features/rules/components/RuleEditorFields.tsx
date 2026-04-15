@@ -62,8 +62,9 @@ export function RuleEditorFields({
     <div className="flex-1 space-y-6 overflow-y-auto px-4 py-4">
       <div className="flex items-end gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Stage</label>
+          <label htmlFor="stage-select" className="text-xs font-medium text-muted-foreground">Stage</label>
           <select
+            id="stage-select"
             className={selectCls}
             value={stage}
             onChange={(e) => onStageChange(e.target.value as RuleStage)}
@@ -76,8 +77,9 @@ export function RuleEditorFields({
           </select>
         </div>
         <div className="flex flex-1 flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Match</label>
+          <label htmlFor="conditionsop-select" className="text-xs font-medium text-muted-foreground">Match</label>
           <select
+            id="conditionsop-select"
             className={selectCls}
             value={conditionsOp}
             onChange={(e) => onConditionsOpChange(e.target.value as ConditionsOp)}

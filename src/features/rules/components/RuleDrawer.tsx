@@ -340,7 +340,7 @@ export function RuleDrawer({ open, onOpenChange, ruleId, seed }: Props) {
     };
 
     if (ruleId && existingRule) {
-      if (serializeRule(existingRule) === serializeRule(nextRule)) {
+      if (initialSignatureRef.current === serializeRule(nextRule)) {
         closeNow();
         return;
       }

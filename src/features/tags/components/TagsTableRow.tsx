@@ -100,6 +100,7 @@ function TagsTableRowComponent({
             onChange={(e) => onToggleSelect(entity.id, e.target.checked)}
             onClick={(e) => e.stopPropagation()}
             className="h-3.5 w-3.5 cursor-pointer rounded accent-primary"
+            aria-label={`Select tag ${entity.name || "Unnamed tag"}`}
           />
         )}
       </td>
