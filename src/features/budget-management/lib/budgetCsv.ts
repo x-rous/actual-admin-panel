@@ -324,7 +324,9 @@ function minorToDecimal(minor: number): string {
 
 /** Converts a decimal string to minor units integer (e.g. "150.00" → 15000). */
 function decimalToMinor(decimal: string): number {
-  const parsed = parseFloat(decimal.replace(/,/g, ""));
+  const normalized = decimal.replace(/,/g, "").trim();
+  if (!/^[+-]?\d+(?:\.\d+)?$/.test(normalized)) return NaN;
+  const parsed = Number(normalized);
   if (isNaN(parsed)) return NaN;
   return Math.round(parsed * 100);
 }

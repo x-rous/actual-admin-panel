@@ -60,6 +60,7 @@ export function useEffectiveMonthData(month: string | null | undefined): {
   const {
     data: allIncomeBudgets,
     isLoading: incomeBudgetsLoading,
+    error: incomeBudgetsError,
   } = useIncomeBudgets(incomeCategoryIds, isTracking);
 
   // Subscribe to the full edits map — filter by month inside the memo.
@@ -119,14 +120,16 @@ export function useEffectiveMonthData(month: string | null | undefined): {
         const serverCat = serverState.categoriesById[catId];
         if (!serverCat?.isIncome) continue;
         if (serverCat.budgeted === budgeted) continue;
+        const delta = budgeted - serverCat.budgeted;
 
-        categoriesById[catId] = { ...serverCat, budgeted };
+        categoriesById[catId] = {
+          ...serverCat,
+          budgeted,
+          balance: serverCat.balance + delta,
+        };
 
         const prev = incomeGroupBudgetDelta.get(serverCat.groupId) ?? 0;
-        incomeGroupBudgetDelta.set(
-          serverCat.groupId,
-          prev + (budgeted - serverCat.budgeted)
-        );
+        incomeGroupBudgetDelta.set(serverCat.groupId, prev + delta);
       }
 
       // Apply accumulated deltas to income groups.
@@ -136,6 +139,7 @@ export function useEffectiveMonthData(month: string | null | undefined): {
           groupsById[groupId] = {
             ...existing,
             budgeted: existing.budgeted + delta,
+            balance: existing.balance + delta,
           };
         }
       }
@@ -199,6 +203,8 @@ export function useEffectiveMonthData(month: string | null | undefined): {
   }, [serverState, allEdits, month, isTracking, allIncomeBudgets]);
 
   const isLoading = monthLoading || (isTracking && incomeBudgetsLoading);
+  const effectiveError =
+    error ?? (isTracking && incomeBudgetsError ? incomeBudgetsError : null);
 
-  return { data, isLoading, error };
+  return { data, isLoading, error: effectiveError };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CellView } from "../types";
 import { useBudgetMode } from "../hooks/useBudgetMode";
 import { useAvailableMonths } from "../hooks/useAvailableMonths";
@@ -57,6 +57,8 @@ export function BudgetManagementView() {
   // Defaults to January of the current year; user can navigate freely.
   const [windowStart, setWindowStart] = useState<string>(defaultWindowStart);
   const activeMonths = useMemo(() => compute12Months(windowStart), [windowStart]);
+  const hasBudgetPendingEdits = Object.keys(edits).length > 0;
+  const hasPushedNavigationGuard = useRef(false);
 
   // Keep display window in store so BudgetDraftPanel can show year summary without props.
   useEffect(() => {
@@ -101,7 +103,15 @@ export function BudgetManagementView() {
 
   // Navigation guard: intercept browser back/forward when staged changes exist.
   useEffect(() => {
-    window.history.pushState(null, "", window.location.href);
+    if (!hasBudgetPendingEdits) {
+      hasPushedNavigationGuard.current = false;
+      return;
+    }
+
+    if (!hasPushedNavigationGuard.current) {
+      window.history.pushState(null, "", window.location.href);
+      hasPushedNavigationGuard.current = true;
+    }
 
     const handlePopState = () => {
       if (!hasPendingEdits()) return;
@@ -110,12 +120,19 @@ export function BudgetManagementView() {
       );
       if (!confirmed) {
         window.history.pushState(null, "", window.location.href);
+        hasPushedNavigationGuard.current = true;
+        return;
       }
+
+      useBudgetEditsStore.getState().discardAll();
+      discardEntityChanges();
+      hasPushedNavigationGuard.current = false;
+      window.history.back();
     };
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [hasPendingEdits]);
+  }, [discardEntityChanges, hasBudgetPendingEdits, hasPendingEdits]);
 
   const handleCloseBulkAction = () => setBulkActionOpen(false);
   const handleOpenExport = () => setExportDialogOpen(true);

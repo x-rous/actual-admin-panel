@@ -91,8 +91,13 @@ export function BudgetSaveProgressDialog({ edits, onClose }: Props) {
     }
     setDialogState("saving");
     setResults([]);
-    const retryResults = await save(retryEdits);
-    applyResults(retryResults);
+    try {
+      const retryResults = await save(retryEdits);
+      applyResults(retryResults);
+    } catch (error) {
+      console.error("Budget save retry failed", error);
+      applyResults(buildRejectedSaveResults(retryEdits, error));
+    }
   }
 
   return (

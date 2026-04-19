@@ -85,10 +85,14 @@ export function useBulkAction(): UseBulkActionReturn {
       const rows: BulkPreviewRow[] = [];
 
       for (const cell of cells) {
-        const cat = categories.find((c) => c.id === cell.categoryId);
+        const targetMonthCat = monthDataMap[cell.month]?.find(
+          (c) => c.id === cell.categoryId
+        );
+        const metadataCat = categories.find((c) => c.id === cell.categoryId);
+        const cat = targetMonthCat ?? metadataCat;
         if (!cat) continue;
 
-        const currentBudgeted = cat.budgeted;
+        const currentBudgeted = targetMonthCat?.budgeted ?? cat.budgeted;
         let nextBudgeted: number | null = null;
 
         switch (action) {
@@ -152,7 +156,7 @@ export function useBulkAction(): UseBulkActionReturn {
         rows.push({
           month: cell.month,
           categoryId: cell.categoryId,
-          categoryName: cat.name,
+          categoryName: metadataCat?.name ?? cat.name,
           previousBudgeted: currentBudgeted,
           nextBudgeted,
         });

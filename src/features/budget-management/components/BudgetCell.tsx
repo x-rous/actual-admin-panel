@@ -154,9 +154,8 @@ export function BudgetCell({
   };
 
   const handleCellKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (blocked || viewBlocked) return;
-
     if (e.key === "Enter" || e.key === "F2") {
+      if (blocked || viewBlocked) return;
       e.preventDefault();
       enterEdit();
     } else if (e.key === "ArrowUp") {
@@ -175,6 +174,10 @@ export function BudgetCell({
       e.preventDefault();
       onNavigate?.(e.shiftKey ? "shift-tab" : "tab");
     } else if (e.key === "Delete" || e.key === "Backspace") {
+      if (blocked || viewBlocked) {
+        e.preventDefault();
+        return;
+      }
       e.preventDefault();
       if (currentBudgeted !== 0) {
         const originalValue = stagedEdit?.previousBudgeted ?? effectiveCategory.budgeted;
@@ -192,6 +195,7 @@ export function BudgetCell({
         }
       }
     } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (blocked || viewBlocked) return;
       e.preventDefault();
       enterEdit(e.key);
     }
@@ -272,6 +276,7 @@ export function BudgetCell({
         aria-disabled={blocked ? "true" : undefined}
         onMouseDown={handleMouseDown}
         onMouseEnter={handleMouseEnter}
+        onKeyDown={handleCellKeyDown}
         onContextMenu={handleContextMenu}
         tabIndex={0}
         title={hoverTitle}

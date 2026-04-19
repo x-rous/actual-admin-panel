@@ -19,6 +19,10 @@ type Props = {
 
 type Step = "upload" | "match" | "preview";
 
+function getImportRowId(index: number): string {
+  return String(index);
+}
+
 function formatAmount(minor: number): string {
   return `$${(minor / 100).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -72,8 +76,12 @@ export function BudgetImportDialog({
         // Auto-approve exact matches
         const autoApproved = new Set<string>(
           results
-            .filter((r) => r.matchStatus === "exact" && r.matchedCategoryId !== null)
-            .map((r) => r.matchedCategoryId!)
+            .map((r, index) =>
+              r.matchStatus === "exact" && r.matchedCategoryId !== null
+                ? getImportRowId(index)
+                : null
+            )
+            .filter((rowId): rowId is string => rowId !== null)
         );
         setApprovedIds(autoApproved);
         setParseError(null);
@@ -99,11 +107,11 @@ export function BudgetImportDialog({
 
   // ---------- Step 2: Match Review ----------
 
-  const toggleApproval = (categoryId: string) => {
+  const toggleApproval = (rowId: string) => {
     setApprovedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(categoryId)) next.delete(categoryId);
-      else next.add(categoryId);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
       return next;
     });
   };
@@ -126,7 +134,7 @@ export function BudgetImportDialog({
 
   const handleBuildPreview = () => {
     const approved = matchResults.filter(
-      (r) => r.matchedCategoryId && approvedIds.has(r.matchedCategoryId)
+      (r, index) => r.matchedCategoryId && approvedIds.has(getImportRowId(index))
     );
     const preview = buildImportPreview(approved, groups, categoriesById);
     setPreviewRows(preview);
@@ -246,8 +254,9 @@ export function BudgetImportDialog({
                 </thead>
                 <tbody>
                   {matchResults.map((result, i) => {
+                    const rowId = getImportRowId(i);
                     const isApproved = result.matchedCategoryId
-                      ? approvedIds.has(result.matchedCategoryId)
+                      ? approvedIds.has(rowId)
                       : false;
                     const hasError = result.matchStatus === "unmatched" ||
                       Object.values(result.monthAvailability).some((s) => s === "absent");
@@ -262,7 +271,7 @@ export function BudgetImportDialog({
                             <input
                               type="checkbox"
                               checked={isApproved}
-                              onChange={() => toggleApproval(result.matchedCategoryId!)}
+                              onChange={() => toggleApproval(rowId)}
                               aria-label={`Approve import of ${result.csvRow.categoryName}`}
                             />
                           )}
