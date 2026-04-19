@@ -1,0 +1,259 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { CellView } from "../types";
+import { useBudgetMode } from "../hooks/useBudgetMode";
+import { useAvailableMonths } from "../hooks/useAvailableMonths";
+import { useMonthData } from "../hooks/useMonthData";
+import { useBudgetEditsStore } from "@/store/budgetEdits";
+import { useStagedStore, selectHasChanges } from "@/store/staged";
+import { BudgetToolbar } from "./BudgetToolbar";
+import { BudgetWorkspace } from "./BudgetWorkspace";
+import { BudgetExportDialog } from "./BudgetExportDialog";
+import { BudgetImportDialog } from "./BudgetImportDialog";
+import { CategoryTransferDialog } from "./CategoryTransferDialog";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Add `delta` months to a YYYY-MM string. Returns a YYYY-MM string. */
+function addMonths(monthStr: string, delta: number): string {
+  const [yearStr, moStr] = monthStr.split("-");
+  const year = parseInt(yearStr ?? "2026", 10);
+  const mo = parseInt(moStr ?? "1", 10);
+  const d = new Date(year, mo - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Compute 12 consecutive months from a start month string. */
+function compute12Months(windowStart: string): string[] {
+  return Array.from({ length: 12 }, (_, i) => addMonths(windowStart, i));
+}
+
+/** Default window start: January of the current year. */
+function defaultWindowStart(): string {
+  return `${new Date().getFullYear()}-01`;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+/**
+ * Top-level page shell for the Budget Management Workspace.
+ *
+ * Owns the 12-month window state and wires the navigation guard that
+ * prevents accidental navigation away with unsaved staged changes.
+ * Always displays exactly 12 consecutive months; the toolbar navigates
+ * forward/backward by 1 month or 1 year.
+ */
+export function BudgetManagementView() {
+  const { data: budgetMode, isLoading: modeLoading, error: modeError } = useBudgetMode();
+  const { data: availableMonths, isLoading: monthsLoading, error: monthsError } = useAvailableMonths();
+  const hasPendingEdits = useBudgetEditsStore((s) => s.hasPendingEdits);
+  const edits = useBudgetEditsStore((s) => s.edits);
+  const setDisplayMonths = useBudgetEditsStore((s) => s.setDisplayMonths);
+  const hasEntityChanges = useStagedStore(selectHasChanges);
+  const discardEntityChanges = useStagedStore((s) => s.discardAll);
+
+  // The window start is the first of the 12 displayed months.
+  // Defaults to January of the current year; user can navigate freely.
+  const [windowStart, setWindowStart] = useState<string>(defaultWindowStart);
+  const activeMonths = useMemo(() => compute12Months(windowStart), [windowStart]);
+
+  // Keep display window in store so BudgetDraftPanel can show year summary without props.
+  useEffect(() => {
+    setDisplayMonths(activeMonths);
+  }, [activeMonths, setDisplayMonths]);
+
+  const [cellView, setCellView] = useState<CellView>("budgeted");
+  const [bulkActionOpen, setBulkActionOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+
+  // Collapse state lifted here so BudgetToolbar can trigger expand/collapse all.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [showHidden, setShowHidden] = useState(true);
+
+  const handleToggleGroupCollapse = useCallback((groupId: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  }, []);
+
+  const handleExpandAll = useCallback(() => {
+    setCollapsedGroups(new Set());
+  }, []);
+
+  // Navigation guard: warn before unload (tab close / refresh)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!hasPendingEdits()) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasPendingEdits]);
+
+  // Navigation guard: intercept browser back/forward when staged changes exist.
+  useEffect(() => {
+    window.history.pushState(null, "", window.location.href);
+
+    const handlePopState = () => {
+      if (!hasPendingEdits()) return;
+      const confirmed = window.confirm(
+        "You have unsaved budget changes. Leave this page and discard them?"
+      );
+      if (!confirmed) {
+        window.history.pushState(null, "", window.location.href);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [hasPendingEdits]);
+
+  const handleCloseBulkAction = () => setBulkActionOpen(false);
+  const handleOpenExport = () => setExportDialogOpen(true);
+  const handleCloseExport = () => setExportDialogOpen(false);
+  const handleOpenImport = () => setImportDialogOpen(true);
+  const handleCloseImport = () => setImportDialogOpen(false);
+  const handleOpenTransfer = () => setTransferDialogOpen(true);
+  const handleCloseTransfer = () => setTransferDialogOpen(false);
+
+  // When the import dialog imports months outside the current window,
+  // move the window start to include them.
+  const handleExtendRange = (months: string[]) => {
+    if (months.length === 0) return;
+    const sorted = [...months].sort();
+    const firstImported = sorted[0]!;
+    const windowEnd = addMonths(windowStart, 11);
+    if (firstImported < windowStart || firstImported > windowEnd) {
+      setWindowStart(firstImported.slice(0, 7));
+    }
+  };
+
+  // Load first active month's data for export/import dialogs (already cached by grid).
+  const firstActiveMonth = activeMonths[0] ?? null;
+  const { data: firstMonthData } = useMonthData(firstActiveMonth);
+  const groups = firstMonthData
+    ? firstMonthData.groupOrder.map((id) => firstMonthData.groupsById[id]!).filter(Boolean)
+    : [];
+  const categoriesById = firstMonthData?.categoriesById ?? {};
+  const categories = firstMonthData
+    ? Object.values(firstMonthData.categoriesById)
+    : [];
+
+  const handleCollapseAll = useCallback(() => {
+    setCollapsedGroups(new Set(firstMonthData?.groupOrder ?? []));
+  }, [firstMonthData]);
+
+  const isLoading = modeLoading || monthsLoading;
+  const hasError = !!modeError || !!monthsError;
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full" aria-busy="true" aria-label="Loading budget management…">
+        <div className="h-12 bg-muted/30 animate-pulse rounded m-4" />
+        <div className="flex-1 bg-muted/10 animate-pulse rounded m-4" />
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="flex items-center justify-center h-full p-8 text-destructive" role="alert">
+        Failed to load budget management data. Please check your connection and try again.
+      </div>
+    );
+  }
+
+  // Entry guard: unsaved entity changes must be resolved before entering the budget page.
+  if (hasEntityChanges) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center p-8 gap-4">
+        <div className="max-w-sm text-center space-y-2">
+          <p className="font-semibold text-sm">Unsaved changes on another page</p>
+          <p className="text-sm text-muted-foreground">
+            Please save or discard your pending changes using the top bar before
+            accessing Budget Management.
+          </p>
+          <button
+            type="button"
+            onClick={discardEntityChanges}
+            className="mt-2 px-4 py-1.5 text-sm rounded border border-border hover:bg-muted transition-colors text-destructive"
+          >
+            Discard changes and continue
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <BudgetToolbar
+        budgetMode={budgetMode ?? "unidentified"}
+        windowStart={windowStart}
+        onWindowChange={setWindowStart}
+        cellView={cellView}
+        onCellViewChange={setCellView}
+        onExpandAll={handleExpandAll}
+        onCollapseAll={handleCollapseAll}
+        showHidden={showHidden}
+        onToggleShowHidden={() => setShowHidden((v) => !v)}
+        onExport={handleOpenExport}
+        onImport={handleOpenImport}
+      />
+
+      <BudgetWorkspace
+        budgetMode={budgetMode ?? "unidentified"}
+        cellView={cellView}
+        activeMonths={activeMonths}
+        availableMonths={availableMonths ?? []}
+        collapsedGroups={collapsedGroups}
+        onToggleCollapse={handleToggleGroupCollapse}
+        showHidden={showHidden}
+        bulkActionOpen={bulkActionOpen}
+        onBulkActionClose={handleCloseBulkAction}
+        onOpenTransfer={budgetMode === "envelope" ? handleOpenTransfer : undefined}
+      />
+
+      {exportDialogOpen && (
+        <BudgetExportDialog
+          availableMonths={availableMonths ?? []}
+          activeMonths={activeMonths}
+          groups={groups}
+          categoriesById={categoriesById}
+          stagedEdits={edits}
+          onClose={handleCloseExport}
+        />
+      )}
+
+      {importDialogOpen && (
+        <BudgetImportDialog
+          availableMonths={availableMonths ?? []}
+          activeMonths={activeMonths}
+          categories={categories}
+          groups={groups}
+          categoriesById={categoriesById}
+          onClose={handleCloseImport}
+          onExtendRange={handleExtendRange}
+        />
+      )}
+
+      {budgetMode === "envelope" && transferDialogOpen && firstActiveMonth && (
+        <CategoryTransferDialog
+          month={firstActiveMonth}
+          categories={categories}
+          onClose={handleCloseTransfer}
+        />
+      )}
+
+    </div>
+  );
+}

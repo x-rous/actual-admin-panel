@@ -128,6 +128,98 @@
 - CSV import and export
 - Info button on each row opens the Usage Inspector drawer; tags show the rules badge and a note that transaction data is not available for tags
 
+## Budget Management Workspace
+
+URL: `/budget-management`
+
+A multi-month budget editing workspace with staged cell editing, a draft review panel, right-click bulk actions, CSV import/export, and envelope-mode immediate actions.
+
+### Toolbar
+- Budget mode badge (`Envelope`, `Tracking`, or `Unknown`) always visible at the left
+- 12-month window navigator: back/forward by 1 month (`‹ ›`) or 1 year (`«»`), plus a "go to current year" calendar button; range label displays as "Jan '26 – Dec '26"
+- Cell-view toggle: **Budget** / **Actuals** / **Balance** — switches what value each month cell displays
+- Expand all / Collapse all group buttons
+- Show / Hide hidden categories toggle
+- Import and Export buttons (UTF-8 CSV with BOM)
+
+### Multi-Month Grid
+- CSS-grid layout: category label column (flexible width), a fixed 32 px notes column, and one fixed-width column per visible month (12 columns)
+- Category and month header row is sticky — stays visible while scrolling down; category name column is sticky — stays visible while scrolling right; all sticky cells use solid opaque backgrounds to prevent bleed-through
+- Group rows show aggregate totals per month; collapsed groups hide their category rows but keep the group total visible
+- Mode-specific summary section above the category groups:
+  - **Envelope mode**: Available Funds (+), Overspent Last Month (−), Budgeted (−), For Next Month (−), and a **To Budget / Overbudget** (=) total row
+  - **Tracking mode**: Expenses consumption bar, Income consumption bar, and a Balance row
+- The 12-month window defaults to January of the current year; the user can navigate freely to any period
+
+### Staged Cell Editing
+- Click, double-click, Enter, or F2 to enter edit mode; blur or Enter to commit; Escape to cancel
+- Accepts numeric amounts and arithmetic expressions (`+`, `-`, `*`, `/`, parentheses)
+- Staged edits displayed in amber; reverting a cell back to its original server value automatically removes the staged edit (no phantom dirty state)
+- Cells with a save error are highlighted in red with a red dot indicator; cells with a staged delta exceeding $5,000 show an orange dot indicator in the top-right corner
+- Income categories are hard-blocked (non-interactive) in envelope mode
+- Undo / Redo with Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z; up to 50 undo steps
+- Delete or Backspace on a focused cell sets it to zero; if the original value is already zero the staged edit is removed
+
+### Selection & Keyboard Navigation
+- Click a cell to select it; Shift+click to extend a rectangular multi-cell selection
+- Arrow keys navigate between cells; Tab moves forward through the grid; all navigation closes any open context menu
+- Clicking outside the grid (toolbar, sidebar, top bar), or clicking non-interactive areas inside the grid (summary rows, section headers, group row gutters, column headers), clears the current selection and shows the year summary in the draft panel
+
+### Right-Click Context Menu
+- Right-clicking any category budget cell opens a compact context menu with two sections:
+  - **Cell actions**: Enable / Disable Rollover (carryover); Transfer Budget (envelope mode only, opens the transfer dialog)
+  - **Set Budget**: inline bulk actions — Copy previous month, Copy specific month…, Set to zero, Set to fixed amount…, Apply % change…, Set to 3 months average, Set to 6 months average, Set to yearly average
+- No-input actions (copy previous, set to zero, the three averages) execute immediately and are staged as one undo step; input-required actions (copy specific month, set fixed, apply %) open a dialog
+- Average actions look back N months before the cell's month using TanStack Query cache; pre-window months are included if previously loaded
+- Selecting a new cell or group dismisses the context menu
+
+### Draft Panel (right side)
+- **Year summary** (default, when no cell or group is selected): shows Expenses (budgeted + spent), Income (received; tracking mode also shows budgeted), and an overall total ("To Budget" in envelope mode, "Net Balance" in tracking mode). Below the totals: a Monthly Trend section with three sparkbar rows — Expenses, Income, and Balance — one bar per month in the active window; bars for months without server data are shown as stubs
+- **Category cell selected**: category name, group, and month label; metrics for budgeted (amber when staged), actuals, balance (colour-coded), carryover status, and previous-month budgeted; if a staged edit exists, a separator row shows the original value and the signed delta; save errors appear as a red message below the diff
+- **Group row selected**: group name and type (income / expense); aggregate budgeted, actuals, balance, and previous-month budgeted; if staged edits exist for any category in the group, shows original total and signed delta
+- **Staged Changes** section (always visible when edits exist, regardless of selection): header with live count badge ("N changes"); changes grouped by month, each entry showing category name and signed delta; save-error markers on failed rows
+
+### Clipboard Paste
+- Paste tab-delimited data from spreadsheets into the grid starting from the top-left selected cell; fills the corresponding rectangle without requiring pre-selection of exact dimensions
+
+### Save Flow
+- **Single edit**: clicking Save in the top bar sends one `PATCH /months/{month}/categories/{id}` and shows a toast with the result
+- **Multiple edits**: clicking Save opens a non-dismissable progress dialog that sends one `PATCH` per cell sequentially (never in parallel) to avoid server race conditions
+  - In-progress state: "Saving budget changes — N of M cells saved…" with a live progress bar
+  - All-success state: cell count and affected months; dialog auto-closes after 3 seconds (manual close also available)
+  - Partial or full failure state: amber header with a scrollable list of failed cells (month / category ID / error message); "Retry Failed" button re-reads only the still-failed keys from the store and re-sends them
+- Failed cells always remain in the store with their `saveError` set — only cells that received a 200 response are cleared; TanStack Query cache is invalidated per succeeded month
+
+### CSV Export
+- Three month-selection modes in the export dialog:
+  - **Quick Range**: preset buttons — Current View, This Month, Last 3 Months, This Year, Last Year, All — each showing a live count badge; Current View is pre-selected on open
+  - **Date Range**: From / To dropdowns constrained to available months; auto-corrects if From > To
+  - **Select**: searchable multi-select combobox (same component as Rules payee picker) — search and pick individual months as chips; only existing months are selectable
+- Always-visible resolution summary: "N months selected: Jan '26 – Dec '26" updates live as the selection changes
+- Options: include hidden categories, include income groups, export with staged (unsaved) values
+- Download blank CSV template (same structure, all amount cells empty)
+- Exported files include a UTF-8 BOM for correct rendering in Excel and Google Sheets
+
+### CSV Import
+- Upload a CSV file → parser strips UTF-8 BOM if present → review exact / suggested / unmatched rows with approval checkboxes → preview proposed changes with before/after values → confirm → all changes staged in the grid as one undo step
+- Levenshtein-distance fuzzy matching (distance ≤ 2) offers suggestions for near-miss category names
+- Out-of-range months (exist in budget but outside the current 12-month window) shown with an "Extend visible range" option; absent months (not in `GET /months`) rejected with a clear error
+
+### Envelope-Mode Immediate Actions
+- **Hold toggle**: each "To Budget" cell in the summary section has a hold toggle button (arrow icon, left of the amount). Clicking it when no hold is active opens the "Next Month Hold for YYYY-MM" dialog to set an amount; the dialog closes immediately on save. Clicking it when a hold is active shows a confirmation dialog ("Free the hold for YYYY-MM?") before clearing. Both actions are immediate and bypass the staged save panel
+- **Transfer**: right-click any category cell → Transfer Budget → opens the Category Transfer dialog; moves budget between non-income categories immediately
+- Hold and Transfer are only available in envelope mode; they do not appear in tracking mode
+
+### Navigation Safety
+- Browser close / refresh prompts confirmation when staged changes exist (`beforeunload`)
+- Browser back/forward navigation prompts confirmation when staged changes exist (`popstate`)
+- Entry guard: if unsaved entity changes exist on another page, the workspace shows a blocking screen with a "Discard changes and continue" option rather than silently mixing two edit stores
+
+### v1 Limitations
+- Carryover is read-only in this release; shown in the context panel but not editable
+- Category-to-pool transfers (omitting source or destination category) are not supported in v1
+- No virtualization; very large category lists may scroll slowly in the grid
+
 ## ActualQL Queries
 
 - Dedicated query workspace for running arbitrary ActualQL JSON queries against the open budget

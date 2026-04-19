@@ -50,7 +50,8 @@ feat/* | fix/* | refactor/* | docs/*  →  main  →  release (tag v1.x.x)
 | Store | Owns |
 |---|---|
 | TanStack Query | Server snapshots (read-only) |
-| Zustand `staged.ts` | Pending mutations + undo/redo |
+| Zustand `staged.ts` | Pending mutations + undo/redo (entity pages) |
+| Zustand `budgetEdits.ts` | Budget cell edits + undo/redo (budget-management only — `BudgetCellKey` composite keys are incompatible with `staged.ts`) |
 | Zustand `connection.ts` | Active connection (`sessionStorage` — do NOT change to `localStorage`) |
 | Zustand `savedServers.ts` | Saved server presets (`sessionStorage`) |
 | Local state | Ephemeral UI only |
@@ -62,7 +63,9 @@ feat/* | fix/* | refactor/* | docs/*  →  main  →  release (tag v1.x.x)
 |---|---|
 | API logic | `src/lib/api/<entity>.ts` |
 | Proxy | `src/app/api/proxy/route.ts` |
-| Staged store | `src/store/staged.ts` |
+| Staged store (entity pages) | `src/store/staged.ts` |
+| Budget cell edits store | `src/store/budgetEdits.ts` |
+| Budget mode shared utility | `src/lib/budget/deriveBudgetMode.ts` |
 | Pages | `src/app/(app)/<page>/page.tsx` |
 | Connection fields | `src/store/connection.ts` |
 | CI/CD workflows | `.github/workflows/` |

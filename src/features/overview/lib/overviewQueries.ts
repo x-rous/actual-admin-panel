@@ -1,4 +1,5 @@
 import { runQuery } from "@/lib/api/query";
+import { deriveBudgetMode } from "@/lib/budget/deriveBudgetMode";
 import type { ConnectionInstance } from "@/store/connection";
 import type { BudgetMode, BudgetOverviewSnapshot, OverviewStatKey } from "../types";
 
@@ -124,20 +125,7 @@ function formatBudgetingSince(dateString: string): string {
   });
 }
 
-function deriveBudgetMode(
-  zeroBudgetCount: number,
-  reflectBudgetCount: number
-): BudgetMode {
-  if (zeroBudgetCount > reflectBudgetCount) {
-    return "Envelope";
-  }
-
-  if (reflectBudgetCount > zeroBudgetCount) {
-    return "Tracking";
-  }
-
-  return "Unidentified";
-}
+// deriveBudgetMode is now shared from src/lib/budget/deriveBudgetMode.ts
 
 async function fetchOverviewCountWithRetry(
   connection: ConnectionInstance,

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Save, X, Undo2, Redo2, RefreshCw } from "lucide-react";
@@ -35,7 +35,11 @@ import {
   selectCanUndo,
   selectCanRedo,
 } from "@/store/staged";
+import { useBudgetEditsStore } from "@/store/budgetEdits";
 import { useBudgetSavePipeline } from "./useBudgetSavePipeline";
+import { useBudgetSave } from "@/features/budget-management/hooks/useBudgetSave";
+import { BudgetSaveProgressDialog } from "@/features/budget-management/components/BudgetSaveProgressDialog";
+import type { BudgetCellKey, StagedBudgetEdit } from "@/features/budget-management/types";
 
 type PendingAction =
   | { kind: "switch"; id: string }
@@ -69,9 +73,11 @@ function TopBarVersionChip({
 
 export function TopBar() {
   const router = useRouter();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [budgetSaveEdits, setBudgetSaveEdits] = useState<Record<BudgetCellKey, StagedBudgetEdit> | null>(null);
 
   const activeInstance = useConnectionStore(selectActiveInstance);
   const instances = useConnectionStore((s) => s.instances);
@@ -79,15 +85,41 @@ export function TopBar() {
   const clearAll = useConnectionStore((s) => s.clearAll);
   const clearServers = useSavedServersStore((s) => s.clearServers);
 
-  const hasChanges = useStagedStore(selectHasChanges);
-  const canUndo = useStagedStore(selectCanUndo);
-  const canRedo = useStagedStore(selectCanRedo);
-  const undo = useStagedStore((s) => s.undo);
-  const redo = useStagedStore((s) => s.redo);
-  const discardAll = useStagedStore((s) => s.discardAll);
+  // Entity pages store
+  const stagedHasChanges = useStagedStore(selectHasChanges);
+  const stagedCanUndo = useStagedStore(selectCanUndo);
+  const stagedCanRedo = useStagedStore(selectCanRedo);
+  const stagedUndo = useStagedStore((s) => s.undo);
+  const stagedRedo = useStagedStore((s) => s.redo);
+  const stagedDiscardAll = useStagedStore((s) => s.discardAll);
   const clearHistory = useStagedStore((s) => s.clearHistory);
+  const { saveAll, isSaving: isEntitySaving } = useBudgetSavePipeline();
 
-  const { saveAll, isSaving } = useBudgetSavePipeline();
+  // Budget page store (always called — hooks cannot be conditional)
+  const budgetHasChanges = useBudgetEditsStore(
+    (s) => Object.keys(s.edits).length > 0
+  );
+  const budgetCanUndo = useBudgetEditsStore((s) => s.undoStack.length > 0);
+  const budgetCanRedo = useBudgetEditsStore((s) => s.redoStack.length > 0);
+  const budgetUndo = useBudgetEditsStore((s) => s.undo);
+  const budgetRedo = useBudgetEditsStore((s) => s.redo);
+  const budgetDiscardAll = useBudgetEditsStore((s) => s.discardAll);
+  const { save: saveBudgetCells, isSaving: isBudgetSaving } = useBudgetSave();
+
+  // Route-aware resolution
+  const isBudgetPage = pathname?.startsWith("/budget-management") ?? false;
+  const hasChanges = isBudgetPage ? budgetHasChanges : stagedHasChanges;
+  const canUndo = isBudgetPage ? budgetCanUndo : stagedCanUndo;
+  const canRedo = isBudgetPage ? budgetCanRedo : stagedCanRedo;
+  const isSaving = isBudgetPage ? (isBudgetSaving || budgetSaveEdits !== null) : isEntitySaving;
+
+  function handleDiscardAll() {
+    if (isBudgetPage) {
+      budgetDiscardAll();
+    } else {
+      stagedDiscardAll();
+    }
+  }
 
   // ── Guarded action helpers ────────────────────────────────────────────────────
 
@@ -101,17 +133,17 @@ export function TopBar() {
 
   async function executeAction(action: PendingAction) {
     if (action.kind === "switch") {
-      discardAll();
+      handleDiscardAll();
       queryClient.clear();
       setActive(action.id);
     } else if (action.kind === "addConnection") {
-      discardAll();
+      handleDiscardAll();
       await queryClient.cancelQueries();
       queryClient.clear();
       setActive(null);
       router.push("/connect");
     } else if (action.kind === "disconnect") {
-      discardAll();
+      handleDiscardAll();
       queryClient.clear();
       clearAll();
       clearServers();
@@ -128,21 +160,50 @@ export function TopBar() {
   // ── Handlers ──────────────────────────────────────────────────────────────────
 
   async function handleSave() {
-    try {
-      const { totalSucceeded, totalFailed } = await saveAll();
-      clearHistory();
-      if (totalFailed === 0) {
-        toast.success(`Saved ${totalSucceeded} item${totalSucceeded !== 1 ? "s" : ""} successfully.`);
-      } else {
-        toast.error(`${totalSucceeded} saved, ${totalFailed} failed.`);
+    if (isBudgetPage) {
+      const edits = useBudgetEditsStore.getState().edits;
+      const editCount = Object.keys(edits).length;
+      if (editCount > 1) {
+        // Multi-edit: open progress dialog — it handles save internally
+        setBudgetSaveEdits({ ...edits });
+        return;
       }
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message :
-        (typeof err === "object" && err !== null && "message" in err)
-          ? String((err as { message: unknown }).message)
-          : "Save failed.";
-      toast.error(msg);
+      // Single edit: inline save with toast
+      try {
+        const results = await saveBudgetCells(edits);
+        const succeeded = results.filter((r) => r.status === "success").length;
+        const failed = results.filter((r) => r.status === "error").length;
+        if (failed === 0) {
+          toast.success(
+            `Saved ${succeeded} budget cell${succeeded !== 1 ? "s" : ""} successfully.`
+          );
+        } else {
+          toast.error(`${succeeded} saved, ${failed} failed.`);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Budget save failed.";
+        toast.error(msg);
+      }
+    } else {
+      try {
+        const { totalSucceeded, totalFailed } = await saveAll();
+        clearHistory();
+        if (totalFailed === 0) {
+          toast.success(
+            `Saved ${totalSucceeded} item${totalSucceeded !== 1 ? "s" : ""} successfully.`
+          );
+        } else {
+          toast.error(`${totalSucceeded} saved, ${totalFailed} failed.`);
+        }
+      } catch (err) {
+        const msg =
+          err instanceof Error
+            ? err.message
+            : typeof err === "object" && err !== null && "message" in err
+            ? String((err as { message: unknown }).message)
+            : "Save failed.";
+        toast.error(msg);
+      }
     }
   }
 
@@ -157,7 +218,7 @@ export function TopBar() {
         action: {
           label: "Discard & Refresh",
           onClick: async () => {
-            discardAll();
+            handleDiscardAll();
             setIsRefreshing(true);
             await queryClient.resetQueries();
             setIsRefreshing(false);
@@ -248,7 +309,7 @@ export function TopBar() {
             size="icon"
             className="h-7 w-7"
             disabled={!canUndo}
-            onClick={undo}
+            onClick={isBudgetPage ? budgetUndo : stagedUndo}
             title="Undo"
           >
             <Undo2 className="h-3.5 w-3.5" />
@@ -258,7 +319,7 @@ export function TopBar() {
             size="icon"
             className="h-7 w-7"
             disabled={!canRedo}
-            onClick={redo}
+            onClick={isBudgetPage ? budgetRedo : stagedRedo}
             title="Redo"
           >
             <Redo2 className="h-3.5 w-3.5" />
@@ -280,7 +341,10 @@ export function TopBar() {
             size="sm"
             className="h-7 text-xs"
             disabled={!hasChanges}
-            onClick={() => { discardAll(); queryClient.resetQueries(); }}
+            onClick={() => {
+              handleDiscardAll();
+              if (!isBudgetPage) void queryClient.resetQueries();
+            }}
           >
             <X className="mr-1 h-3.5 w-3.5" />
             Discard
@@ -300,6 +364,13 @@ export function TopBar() {
           </Button>
         </div>
       </header>
+
+      {budgetSaveEdits !== null && (
+        <BudgetSaveProgressDialog
+          edits={budgetSaveEdits}
+          onClose={() => setBudgetSaveEdits(null)}
+        />
+      )}
 
       <Dialog open={pendingAction !== null} onOpenChange={(open) => { if (!open) setPendingAction(null); }}>
         <DialogContent showCloseButton={false}>

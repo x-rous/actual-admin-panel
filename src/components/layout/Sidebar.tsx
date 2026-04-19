@@ -21,6 +21,7 @@ import {
   AlertCircle,
   BookOpen,
   LayoutDashboard,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConnectionStore } from "@/store/connection";
@@ -71,6 +72,7 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
       id: "data-management",
       label: "Data Management",
       items: [
+        { id: "budget-management", label: "Budget", href: "/budget-management", icon: Wallet },
         { id: "rules", label: "Rules", href: "/rules", icon: ScrollText },
         { id: "accounts", label: "Accounts", href: "/accounts", icon: Landmark },
         { id: "payees", label: "Payees", href: "/payees", icon: Users },
